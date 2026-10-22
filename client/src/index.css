@@ -1,0 +1,63 @@
+﻿@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #050507;
+    background-image: 
+      radial-gradient(circle at 50% 0%, rgba(255, 230, 0, 0.05) 0%, transparent 40%),
+      radial-gradient(circle at 90% 40%, rgba(0, 245, 255, 0.04) 0%, transparent 40%),
+      radial-gradient(circle at 10% 70%, rgba(255, 0, 127, 0.04) 0%, transparent 40%);
+    background-attachment: fixed;
+    font-family: 'Inter', sans-serif;
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: 'Space Grotesk', sans-serif;
+  }
+
+  .font-brand {
+    font-family: 'Syne', sans-serif;
+  }
+}
+
+/* Film strip edge perforated effect */
+.film-strip-border {
+  background-image: radial-gradient(circle, #050507 4px, transparent 5px);
+  background-size: 16px 16px;
+}
+
+/* Glassmorphism card */
+.glass-panel {
+  background: rgba(18, 18, 24, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel-glow {
+  background: rgba(18, 18, 24, 0.85);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 230, 0, 0.25);
+  box-shadow: 0 0 25px rgba(255, 230, 0, 0.08);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #09090c;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #232330;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #FFE600;
+}

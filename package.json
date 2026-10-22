@@ -1,0 +1,14 @@
+{
+  "name": "pixel-frame-the-day",
+  "version": "1.0.0",
+  "description": "Full-Stack Photography Event Registration, Payment Verification & E-Ticket Management System",
+  "type": "module",
+  "scripts": {
+    "server": "node server/src/server.js",
+    "client": "npm --prefix client run dev",
+    "build": "npm --prefix client run build",
+    "test": "node tests/test_flow.mjs",
+    "clean": "npm --prefix server run clean",
+    "start": "node server/src/server.js"
+  }
+}
