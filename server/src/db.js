@@ -309,16 +309,28 @@ export const initDb = async () => {
     console.log('Default event settings initialized from poster info.');
   }
 
-  // Seed default Admin account if not exists
-  const adminUser = await queryGet('SELECT id FROM users WHERE email = ?', ['admin@pixel.lnct.ac.in']);
-  if (!adminUser) {
+  // Seed or synchronize Admin account with environment credentials
+  const adminEmail = (process.env.ADMIN_EMAIL || 'admin@lnct.ac.in').trim().toLowerCase();
+  const adminPassword = process.env.ADMIN_PASSWORD || 'Pixel#LNCT2026!Secure';
+  const adminPasswordHash = await bcrypt.hash(adminPassword, 10);
+
+  const existingAdmin = await queryGet(
+    "SELECT id, email FROM users WHERE role = 'ADMIN' OR email = ? OR email = 'admin@pixel.lnct.ac.in'",
+    [adminEmail]
+  );
+  if (existingAdmin) {
+    await queryRun(
+      'UPDATE users SET email = ?, password_hash = ?, role = ? WHERE id = ?',
+      [adminEmail, adminPasswordHash, 'ADMIN', existingAdmin.id]
+    );
+    console.log(`[Admin] Synchronized Administrator credentials: ${adminEmail}`);
+  } else {
     const adminId = uuidv4();
-    const adminPasswordHash = await bcrypt.hash('Admin@Pixel2026', 10);
-    await queryRun(`
-      INSERT INTO users (id, email, password_hash, role)
-      VALUES (?, ?, ?, 'ADMIN')
-    `, [adminId, 'admin@pixel.lnct.ac.in', adminPasswordHash]);
-    console.log('Seeded Administrator: admin@pixel.lnct.ac.in / Admin@Pixel2026');
+    await queryRun(
+      'INSERT INTO users (id, email, password_hash, role) VALUES (?, ?, ?, ?)',
+      [adminId, adminEmail, adminPasswordHash, 'ADMIN']
+    );
+    console.log(`[Admin] Seeded Administrator: ${adminEmail}`);
   }
 
   // Seed default Staff scanner account if not exists

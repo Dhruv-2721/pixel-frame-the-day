@@ -12,3 +12,7 @@ services:
         value: 10000
       - key: JWT_SECRET
         generateValue: true
+      - key: ADMIN_EMAIL
+        value: admin@lnct.ac.in
+      - key: ADMIN_PASSWORD
+        value: Pixel#LNCT2026!Secure

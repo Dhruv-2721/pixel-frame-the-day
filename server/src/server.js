@@ -186,7 +186,8 @@ const startServer = async () => {
       console.log(`PIXEL — FRAME THE DAY Backend API Server Started`);
       console.log(`Security: CSP, Rate Limiting, Magic Byte Check, HPP, XSS Sanitizer`);
       console.log(`Listening on http://localhost:${PORT}`);
-      console.log(`Admin: admin@pixel.lnct.ac.in / Admin@Pixel2026`);
+      const activeAdmin = process.env.ADMIN_EMAIL || 'admin@lnct.ac.in';
+      console.log(`Admin Portal: ${activeAdmin}`);
       console.log(`Staff: staff@pixel.lnct.ac.in / Staff@Pixel2026`);
       console.log(`====================================================`);
     });
