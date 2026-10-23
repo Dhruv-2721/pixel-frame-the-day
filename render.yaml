@@ -16,3 +16,7 @@ services:
         value: admin@lnct.ac.in
       - key: ADMIN_PASSWORD
         value: Pixel#LNCT2026!Secure
+      - key: STAFF_EMAIL
+        value: staff@lnct.ac.in
+      - key: STAFF_PASSWORD
+        value: Staff#LNCT2026!Gate

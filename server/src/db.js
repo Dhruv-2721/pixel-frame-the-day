@@ -333,16 +333,28 @@ export const initDb = async () => {
     console.log(`[Admin] Seeded Administrator: ${adminEmail}`);
   }
 
-  // Seed default Staff scanner account if not exists
-  const staffUser = await queryGet('SELECT id FROM users WHERE email = ?', ['staff@pixel.lnct.ac.in']);
-  if (!staffUser) {
+  // Seed or synchronize Staff scanner account with environment credentials
+  const staffEmail = (process.env.STAFF_EMAIL || 'staff@lnct.ac.in').trim().toLowerCase();
+  const staffPassword = process.env.STAFF_PASSWORD || 'Staff#LNCT2026!Gate';
+  const staffPasswordHash = await bcrypt.hash(staffPassword, 10);
+
+  const existingStaff = await queryGet(
+    "SELECT id, email FROM users WHERE role = 'STAFF' OR email = ? OR email = 'staff@pixel.lnct.ac.in'",
+    [staffEmail]
+  );
+  if (existingStaff) {
+    await queryRun(
+      'UPDATE users SET email = ?, password_hash = ?, role = ? WHERE id = ?',
+      [staffEmail, staffPasswordHash, 'STAFF', existingStaff.id]
+    );
+    console.log(`[Staff] Synchronized Staff credentials: ${staffEmail}`);
+  } else {
     const staffId = uuidv4();
-    const staffPasswordHash = await bcrypt.hash('Staff@Pixel2026', 10);
-    await queryRun(`
-      INSERT INTO users (id, email, password_hash, role)
-      VALUES (?, ?, ?, 'STAFF')
-    `, [staffId, 'staff@pixel.lnct.ac.in', staffPasswordHash]);
-    console.log('Seeded Staff Account: staff@pixel.lnct.ac.in / Staff@Pixel2026');
+    await queryRun(
+      'INSERT INTO users (id, email, password_hash, role) VALUES (?, ?, ?, ?)',
+      [staffId, staffEmail, staffPasswordHash, 'STAFF']
+    );
+    console.log(`[Staff] Seeded Staff Account: ${staffEmail}`);
   }
 
   // Seed sample announcements

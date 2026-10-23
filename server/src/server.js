@@ -188,7 +188,8 @@ const startServer = async () => {
       console.log(`Listening on http://localhost:${PORT}`);
       const activeAdmin = process.env.ADMIN_EMAIL || 'admin@lnct.ac.in';
       console.log(`Admin Portal: ${activeAdmin}`);
-      console.log(`Staff: staff@pixel.lnct.ac.in / Staff@Pixel2026`);
+      const activeStaff = process.env.STAFF_EMAIL || 'staff@lnct.ac.in';
+      console.log(`Staff Portal: ${activeStaff}`);
       console.log(`====================================================`);
     });
   } catch (error) {
