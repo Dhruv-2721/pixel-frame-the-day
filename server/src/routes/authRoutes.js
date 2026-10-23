@@ -58,14 +58,14 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Please provide a valid 10-digit Indian mobile number.' });
     }
 
-    // Eligibility check based on poster rules:
-    // LNCT Group: 2nd to 4th Year Only | Other Colleges: All Years Students Welcome
+    // Eligibility check based on event rules:
+    // LNCT Group: 2nd to 4th Year & Other | Other Colleges: All Years Welcome
     const cleanCollegeType = college_type.trim().toUpperCase();
     if (cleanCollegeType === 'LNCT') {
-      const allowedYears = ['2nd Year', '3rd Year', '4th Year', '2', '3', '4'];
-      if (!allowedYears.some(yr => academic_year.includes(yr))) {
+      const allowedYears = ['2nd Year', '3rd Year', '4th Year', '2', '3', '4', 'Other', 'other'];
+      if (!allowedYears.some(yr => academic_year.toLowerCase().includes(yr.toLowerCase()))) {
         return res.status(400).json({
-          error: 'Per official event guidelines, LNCT participants must be currently in their 2nd, 3rd, or 4th academic year. 1st year LNCT students are not eligible.'
+          error: 'Per official event guidelines, LNCT participants must be currently in their 2nd, 3rd, or 4th academic year (or Other). 1st year LNCT students are not eligible.'
         });
       }
     }
