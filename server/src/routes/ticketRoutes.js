@@ -1,8 +1,9 @@
-﻿import express from 'express';
+import express from 'express';
 import QRCode from 'qrcode';
 import { v4 as uuidv4 } from 'uuid';
 import { queryGet, queryRun } from '../db.js';
 import { requireAuth, requireAdmin, requireStaffOrAdmin } from '../middleware/auth.js';
+import { verifyLimiter } from '../middleware/security.js';
 
 const router = express.Router();
 
@@ -58,8 +59,8 @@ router.get('/my-ticket', requireAuth, async (req, res) => {
   }
 });
 
-// Verify ticket authenticity (Public or Staff)
-router.get('/verify/:identifier', async (req, res) => {
+// Verify ticket authenticity (Public or Staff) with anti-scraping rate limiter
+router.get('/verify/:identifier', verifyLimiter, async (req, res) => {
   try {
     const { identifier } = req.params;
     const cleanId = identifier.trim();

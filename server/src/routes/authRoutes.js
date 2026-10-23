@@ -1,10 +1,14 @@
-﻿import express from 'express';
+import express from 'express';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { queryGet, queryRun } from '../db.js';
 import { generateToken, requireAuth } from '../middleware/auth.js';
+import { validatePasswordStrength } from '../middleware/security.js';
 
 const router = express.Router();
+
+// Constant-time dummy hash for timing attack mitigation on failed email lookups
+const DUMMY_HASH = '$2a$12$e8Yk1J5Vl0C2WpQ2M0G1Oe7X2c6R8s4V0k3E9Y1U5W7Z2X4P6Q8S0';
 
 // Helper to validate Indian mobile number: 10 digits starting with 6, 7, 8, or 9
 const isValidMobile = (phone) => {
@@ -81,8 +85,14 @@ router.post('/register', async (req, res) => {
       return res.status(409).json({ error: 'This Student ID / Enrollment Number is already registered.' });
     }
 
-    // Hash password
-    const password_hash = await bcrypt.hash(password, 10);
+    // Validate password complexity
+    const passwordCheck = validatePasswordStrength(password);
+    if (!passwordCheck.valid) {
+      return res.status(400).json({ error: passwordCheck.message });
+    }
+
+    // Hash password with 12 rounds of bcrypt
+    const password_hash = await bcrypt.hash(password, 12);
     const userId = uuidv4();
     const participantId = uuidv4();
 
@@ -152,12 +162,12 @@ router.post('/login', async (req, res) => {
 
     const cleanEmail = email.trim().toLowerCase();
     const user = await queryGet('SELECT * FROM users WHERE email = ?', [cleanEmail]);
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid email or password.' });
-    }
+    
+    // Constant-time execution prevents account enumeration via timing attacks
+    const hashToCompare = user ? user.password_hash : DUMMY_HASH;
+    const isMatch = await bcrypt.compare(password, hashToCompare);
 
-    const isMatch = await bcrypt.compare(password, user.password_hash);
-    if (!isMatch) {
+    if (!user || !isMatch) {
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
 

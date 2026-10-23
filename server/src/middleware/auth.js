@@ -1,10 +1,10 @@
-﻿import jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { queryGet } from '../db.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'pixel_super_secret_jwt_key_2026_lnct';
 
 export const generateToken = (payload) => {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d', algorithm: 'HS256' });
 };
 
 export const requireAuth = async (req, res, next) => {
@@ -15,7 +15,7 @@ export const requireAuth = async (req, res, next) => {
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
 
     const user = await queryGet('SELECT id, email, role, created_at FROM users WHERE id = ?', [decoded.id]);
     if (!user) {

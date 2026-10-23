@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import confetti from 'canvas-confetti';
 import { Camera, Check, AlertCircle, ArrowRight, ArrowLeft, ShieldCheck, User, School, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -85,8 +85,12 @@ export const RegisterPage = ({ setView }) => {
     e.preventDefault();
     setError(null);
 
-    if (formData.password.length < 6) {
-      return setError('Password must be at least 6 characters long.');
+    if (formData.password.length < 8) {
+      return setError('Password must be at least 8 characters long.');
+    }
+
+    if (!/[A-Z]/.test(formData.password) || !/[a-z]/.test(formData.password) || !/[0-9]/.test(formData.password) || !/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(formData.password)) {
+      return setError('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.');
     }
 
     if (formData.password !== formData.confirm_password) {
@@ -431,10 +435,13 @@ export const RegisterPage = ({ setView }) => {
                     name="password"
                     value={formData.password}
                     onChange={handleChange}
-                    placeholder="Minimum 6 characters"
+                    placeholder="Min 8 chars, 1 uppercase, 1 number, 1 symbol"
                     className="w-full px-4 py-3 rounded-xl bg-dark-900 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-pixel-magenta text-sm"
                     required
                   />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Must include A-Z, a-z, 0-9 & special symbol (!@#$%)
+                  </p>
                 </div>
 
                 <div>

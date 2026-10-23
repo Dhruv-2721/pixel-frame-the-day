@@ -16,11 +16,14 @@ async function runTests() {
   console.log('=====================================================');
 
   try {
-    // 1. Health check
+    // 1. Health check & Security Headers
     const healthRes = await fetch(`${BASE_URL}/health`);
     const health = await healthRes.json();
     if (health.status !== 'ONLINE') throw new Error('Health check failed');
-    logPass('Server online and responding to health check');
+    if (!healthRes.headers.get('x-frame-options') || !healthRes.headers.get('content-security-policy')) {
+      throw new Error('Security headers (CSP / X-Frame-Options) missing from server response');
+    }
+    logPass('Server online with verified CSP, anti-clickjacking & security headers');
 
     // 2. Event Settings & QR code verification
     const settingsRes = await fetch(`${BASE_URL}/event/settings`);
@@ -30,7 +33,31 @@ async function runTests() {
     }
     logPass('Event settings, participation fee (₹59), and official QR loaded');
 
-    // 3. Test LNCT 1st year restriction enforcement
+    // 3. Test Weak Password Rejection
+    const weakPassRes = await fetch(`${BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        full_name: 'Weak Password Tester',
+        email: `weak_${Date.now()}@lnct.ac.in`,
+        mobile: '9876543210',
+        city: 'Bhopal',
+        college_type: 'LNCT',
+        college_name: 'LNCT Group of Colleges, Bhopal',
+        course: 'B.Tech CSE',
+        academic_year: '2nd Year',
+        student_id: `WEAK_${Date.now()}`,
+        password: 'weak',
+        accept_rules: true
+      })
+    });
+    if (weakPassRes.status === 400) {
+      logPass('Weak password policy correctly enforced (400 Bad Request)');
+    } else {
+      throw new Error(`Expected 400 for weak password, got ${weakPassRes.status}`);
+    }
+
+    // 4. Test LNCT 1st year restriction enforcement
     const testEmail1 = `test_lnct_1st_${Date.now()}@example.com`;
     const reg1stRes = await fetch(`${BASE_URL}/auth/register`, {
       method: 'POST',
@@ -45,7 +72,7 @@ async function runTests() {
         course: 'B.Tech CSE',
         academic_year: '1st Year',
         student_id: `ID_${Date.now()}`,
-        password: 'Password123',
+        password: 'PixelPass@2026',
         accept_rules: true
       })
     });
@@ -55,13 +82,13 @@ async function runTests() {
       throw new Error(`Expected 400 for LNCT 1st year, got ${reg1stRes.status}`);
     }
 
-    // 4. Test Valid LNCT 2nd year registration
+    // 5. Test Valid LNCT 2nd year registration with XSS payload in input
     const participantEmail = `photographer_${Date.now()}@lnct.ac.in`;
     const regRes = await fetch(`${BASE_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        full_name: 'Aarav Patel',
+        full_name: 'Aarav Patel <script>alert("xss")</script>',
         email: participantEmail,
         mobile: '9876543210',
         city: 'Bhopal',
@@ -70,7 +97,7 @@ async function runTests() {
         course: 'B.Tech CSE',
         academic_year: '2nd Year',
         student_id: `LNCT_${Date.now()}`,
-        password: 'Password123',
+        password: 'PixelPass@2026',
         accept_rules: true
       })
     });
@@ -78,12 +105,17 @@ async function runTests() {
     if (!regRes.ok || !regData.token || !regData.participant.registration_id) {
       throw new Error(`Registration failed: ${regData.error || regRes.statusText}`);
     }
+    // Verify script tag was stripped from full_name
+    if (regData.participant.full_name.includes('<script>')) {
+      throw new Error('XSS filter failed: script tag found in registered name');
+    }
+    logPass('XSS Sanitization verified: malicious <script> tags safely filtered from user input');
     const participantToken = regData.token;
     const participantId = regData.participant.id;
     const regId = regData.participant.registration_id;
     logPass(`Valid participant registered: ${regId} (${regData.participant.full_name})`);
 
-    // 5. Test Duplicate Registration Prevention
+    // 6. Test Duplicate Registration Prevention
     const dupRes = await fetch(`${BASE_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -97,7 +129,7 @@ async function runTests() {
         course: 'B.Tech CSE',
         academic_year: '2nd Year',
         student_id: `LNCT_${Date.now()}`,
-        password: 'Password123',
+        password: 'PixelPass@2026',
         accept_rules: true
       })
     });
@@ -107,7 +139,7 @@ async function runTests() {
       throw new Error(`Expected 409 on duplicate email, got ${dupRes.status}`);
     }
 
-    // 6. Test Participant Dashboard / Me
+    // 7. Test Participant Dashboard / Me
     const meRes = await fetch(`${BASE_URL}/auth/me`, {
       headers: { 'Authorization': `Bearer ${participantToken}` }
     });
@@ -156,7 +188,27 @@ async function runTests() {
     const paymentId = paymentData.payment.id;
     logPass(`Payment proof submitted successfully: Status UNDER_REVIEW (UTR: ${paymentData.payment.transaction_ref})`);
 
-    // 8. Test Private Proof Access Control
+    // 8. Test Magic Byte File Signature Verification (Anti-Shell / Malicious Upload Defense)
+    const fakeImgData = new FormData();
+    const fakeBlob = new Blob(['MALICIOUS_SHELL_PAYLOAD_NOT_AN_IMAGE'], { type: 'image/jpeg' });
+    fakeImgData.append('screenshot', fakeBlob, 'shell.jpg');
+    fakeImgData.append('transaction_ref', 'UPI/FAKE/123');
+    fakeImgData.append('amount', '59');
+    fakeImgData.append('payer_name', 'Hacker');
+    fakeImgData.append('payment_date', '2026-10-22');
+
+    const fakeUploadRes = await fetch(`${BASE_URL}/payment/submit`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${participantToken}` },
+      body: fakeImgData
+    });
+    if (fakeUploadRes.status === 400) {
+      logPass('Magic Byte Image Signature Check verified: non-image payload safely rejected (400 Bad Request)');
+    } else {
+      throw new Error(`Expected 400 for forged image upload, got ${fakeUploadRes.status}`);
+    }
+
+    // 9. Test Private Proof Access Control
     // Unauthenticated request to view payment screenshot
     const unauthProofRes = await fetch(`${BASE_URL}/payments/${paymentId}/proof`);
     if (unauthProofRes.status === 401) {

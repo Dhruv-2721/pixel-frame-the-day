@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { queryGet, queryRun, queryAll } from '../db.js';
 import { requireAuth, requireAdmin, requireStaffOrAdmin } from '../middleware/auth.js';
 import { uploadPhoto } from '../middleware/upload.js';
+import { validateUploadSignature } from '../middleware/security.js';
 import { notificationService } from '../services/notificationService.js';
 import { sendJudgingResultEmail } from '../services/emailService.js';
 
@@ -18,7 +19,7 @@ const router = express.Router();
 /**
  * PARTICIPANT: Submit competition photograph
  */
-router.post('/upload', requireAuth, uploadPhoto.single('photo'), async (req, res) => {
+router.post('/upload', requireAuth, uploadPhoto.single('photo'), validateUploadSignature, async (req, res) => {
   try {
     if (req.user.role !== 'PARTICIPANT') {
       if (req.file) fs.unlinkSync(req.file.path);

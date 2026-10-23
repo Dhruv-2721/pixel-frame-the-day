@@ -14,6 +14,9 @@ const ensureDir = (dir) => {
   }
 };
 
+const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     let dest = path.join(baseUploadDir, 'payment_proofs');
@@ -28,18 +31,22 @@ const storage = multer.diskStorage({
     cb(null, dest);
   },
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
+    // Sanitize extension: get last extension, convert to lower case, ensure in whitelist
+    let ext = path.extname(file.originalname).toLowerCase().replace(/[^a-z0-9.]/g, '');
+    if (!ALLOWED_EXTENSIONS.has(ext)) {
+      ext = '.jpg'; // safe fallback
+    }
     const uniqueName = `${uuidv4()}${ext}`;
     cb(null, uniqueName);
   }
 });
 
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-  if (allowedTypes.includes(file.mimetype)) {
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (ALLOWED_MIME_TYPES.has(file.mimetype) && ALLOWED_EXTENSIONS.has(ext)) {
     cb(null, true);
   } else {
-    cb(new Error('Invalid file type. Only JPG, PNG, and WebP images are allowed.'), false);
+    cb(new Error('Invalid file type. Only authentic JPG, PNG, and WebP images are allowed.'), false);
   }
 };
 

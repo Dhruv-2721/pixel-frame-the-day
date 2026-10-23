@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { queryGet, queryRun, queryAll } from '../db.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
+import { validateUploadSignature } from '../middleware/security.js';
 import { notificationService } from '../services/notificationService.js';
 import { sendTicketConfirmationEmail, sendPaymentRejectionEmail } from '../services/emailService.js';
 
@@ -17,7 +18,7 @@ const baseUploadDir = path.resolve(__dirname, '../../uploads');
 const router = express.Router();
 
 // Participant submits payment proof
-router.post('/submit', requireAuth, upload.single('screenshot'), async (req, res) => {
+router.post('/submit', requireAuth, upload.single('screenshot'), validateUploadSignature, async (req, res) => {
   try {
     if (req.user.role !== 'PARTICIPANT') {
       return res.status(403).json({ error: 'Only participants can submit payment proof.' });
