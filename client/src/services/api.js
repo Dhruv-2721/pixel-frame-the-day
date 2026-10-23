@@ -109,6 +109,21 @@ export const api = {
   getEmailLogs: () => apiRequest('/admin/email-logs', { method: 'GET' }),
   createStaffUser: (payload) => apiRequest('/admin/users/create', { method: 'POST', body: payload }),
 
+  // 1 TB Media Drive & Photo Vault
+  getDriveStats: () => apiRequest('/admin/drive/stats', { method: 'GET' }),
+  getDrivePhotos: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiRequest(`/admin/drive/photos${query ? `?${query}` : ''}`, { method: 'GET' });
+  },
+  exportDriveCsv: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiRequest(`/admin/drive/export-csv${query ? `?${query}` : ''}`, { method: 'GET' });
+  },
+  getDriveZipUrl: (round = '') => {
+    const token = getAuthToken() || '';
+    return `${API_BASE}/admin/drive/download-zip?token=${encodeURIComponent(token)}${round && round !== 'ALL' ? `&round=${round}` : ''}`;
+  },
+
   // Notifications SSE URL
   getNotificationStreamUrl: () => `${API_BASE}/notifications/stream?token=${getAuthToken() || ''}`
 };

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   Shield, CheckCircle, XCircle, Clock, Users, Ticket, DollarSign, 
   Search, Filter, Download, Eye, AlertCircle, RefreshCw, Upload, 
-  Settings, Award, FileText, ChevronRight, Check, X, Camera, Mail, Trophy 
+  Settings, Award, FileText, ChevronRight, Check, X, Camera, Mail, Trophy,
+  HardDrive, Cloud, FolderArchive, Grid, List, ExternalLink, FileSpreadsheet
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -52,6 +53,17 @@ export const AdminDashboard = ({ setView }) => {
   // Audit Logs & Email Logs States
   const [auditLogs, setAuditLogs] = useState([]);
   const [emailLogs, setEmailLogs] = useState([]);
+
+  // 1 TB Media Drive States
+  const [driveStats, setDriveStats] = useState(null);
+  const [drivePhotos, setDrivePhotos] = useState([]);
+  const [driveLoading, setDriveLoading] = useState(false);
+  const [driveRoundFilter, setDriveRoundFilter] = useState('ALL');
+  const [driveSearch, setDriveSearch] = useState('');
+  const [driveSort, setDriveSort] = useState('newest');
+  const [driveViewMode, setDriveViewMode] = useState('grid');
+  const [selectedDrivePhoto, setSelectedDrivePhoto] = useState(null);
+  const [exportingDriveCsv, setExportingDriveCsv] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -144,6 +156,51 @@ export const AdminDashboard = ({ setView }) => {
     }
   };
 
+  const loadDriveData = async () => {
+    setDriveLoading(true);
+    try {
+      const [statsRes, photosRes] = await Promise.all([
+        api.getDriveStats(),
+        api.getDrivePhotos({
+          round: driveRoundFilter,
+          search: driveSearch,
+          sort: driveSort
+        })
+      ]);
+      setDriveStats(statsRes.drive);
+      setDrivePhotos(photosRes.photos || []);
+    } catch (e) {
+      console.error('Failed to load drive data:', e);
+    } finally {
+      setDriveLoading(false);
+    }
+  };
+
+  const handleExportDriveCsv = async () => {
+    try {
+      setExportingDriveCsv(true);
+      const csvText = await api.exportDriveCsv({
+        round: driveRoundFilter,
+        search: driveSearch
+      });
+      const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const timestamp = new Date().toISOString().slice(0, 10);
+      link.setAttribute('download', `pixel_2026_photo_drive_1tb_${timestamp}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to export drive CSV:', err);
+      alert('Failed to export Drive CSV: ' + (err.message || 'Please try again.'));
+    } finally {
+      setExportingDriveCsv(false);
+    }
+  };
+
   useEffect(() => {
     loadData();
   }, [paymentFilter, collegeFilter, roundFilter]);
@@ -155,8 +212,10 @@ export const AdminDashboard = ({ setView }) => {
       loadSubmissions();
     } else if (activeTab === 'emails') {
       loadEmailLogs();
+    } else if (activeTab === 'drive') {
+      loadDriveData();
     }
-  }, [activeTab, subRoundFilter, subStatusFilter]);
+  }, [activeTab, subRoundFilter, subStatusFilter, driveRoundFilter, driveSort]);
 
   const handleScoreSubmission = async (e) => {
     e.preventDefault();
@@ -412,6 +471,21 @@ export const AdminDashboard = ({ setView }) => {
         >
           <Users className="w-3.5 h-3.5" />
           All Participants ({analytics?.totalRegistrations || 0})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('drive')}
+          className={`px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 border ${
+            activeTab === 'drive'
+              ? 'bg-gradient-to-r from-pixel-cyan to-blue-500 text-black border-transparent shadow-neon-cyan'
+              : 'bg-dark-900 text-slate-300 hover:text-white border-pixel-cyan/40 hover:border-pixel-cyan'
+          }`}
+        >
+          <HardDrive className="w-3.5 h-3.5 text-pixel-cyan" />
+          <span>1 TB Media Drive</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/40 text-pixel-cyan font-mono font-bold">
+            1 TB
+          </span>
         </button>
 
         <button
@@ -815,6 +889,535 @@ export const AdminDashboard = ({ setView }) => {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* TAB: 1 TB MEDIA DRIVE & PHOTO VAULT */}
+      {activeTab === 'drive' && (
+        <div className="space-y-6">
+          
+          {/* Storage Capacity & Drive Overview Banner */}
+          <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-pixel-cyan/30 bg-gradient-to-br from-dark-900 via-dark-950 to-dark-900 shadow-2xl space-y-6 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-pixel-cyan/5 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-mono font-bold uppercase bg-pixel-cyan/20 text-pixel-cyan border border-pixel-cyan/40 flex items-center gap-1.5 shadow-neon-cyan">
+                    <Cloud className="w-3.5 h-3.5" /> High-Capacity Media Cloud
+                  </span>
+                  <span className="text-xs font-mono text-slate-400">PIXEL Official Storage</span>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-brand font-black text-white flex items-center gap-3">
+                  <span>1 TB PHOTO VAULT & REPOSITORY</span>
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-400 max-w-2xl leading-relaxed">
+                  Dedicated 1,024 GB high-performance storage vault receiving all participant submissions, full camera EXIF/equipment specifications, 60-second storytelling pitches, and uncompressed festival photographs.
+                </p>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleExportDriveCsv}
+                  disabled={exportingDriveCsv}
+                  className="px-4 py-2.5 rounded-xl bg-dark-900 hover:bg-dark-800 border border-pixel-yellow/40 hover:border-pixel-yellow text-xs font-mono font-bold text-pixel-yellow hover:text-white flex items-center gap-2 transition-all shadow-sm disabled:opacity-50"
+                  title="Download complete photo catalog manifest with all student information and camera details in CSV format"
+                >
+                  <FileSpreadsheet className={`w-4 h-4 ${exportingDriveCsv ? 'animate-bounce' : ''}`} />
+                  <span>{exportingDriveCsv ? 'Exporting...' : 'Export Manifest (CSV)'}</span>
+                </button>
+
+                <a
+                  href={api.getDriveZipUrl(driveRoundFilter)}
+                  className="px-4 py-2.5 rounded-xl bg-pixel-cyan hover:bg-cyan-400 text-black text-xs font-mono font-bold flex items-center gap-2 shadow-neon-cyan transition-all"
+                  title="Download all high-res photos in this view bundled into a clean ZIP archive with folder structure"
+                >
+                  <FolderArchive className="w-4 h-4" />
+                  <span>Download Drive Archive (.ZIP)</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={loadDriveData}
+                  className="p-2.5 rounded-xl bg-dark-900 hover:bg-dark-800 border border-white/10 text-slate-300 hover:text-white transition-colors"
+                  title="Refresh Drive Stats"
+                >
+                  <RefreshCw className={`w-4 h-4 ${driveLoading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+            </div>
+
+            {/* Storage Progress Bar & Metrics */}
+            <div className="space-y-3 pt-4 border-t border-white/10">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs font-mono text-slate-300 gap-1">
+                <div className="flex items-center gap-2">
+                  <HardDrive className="w-4 h-4 text-pixel-cyan" />
+                  <span>STORAGE UTILIZATION: <strong className="text-white">{driveStats?.usedFormatted || '0 Bytes'}</strong> of <strong className="text-pixel-cyan">1,024 GB (1.00 TB)</strong></span>
+                </div>
+                <div className="text-slate-400">
+                  <span>Available: <strong className="text-emerald-400">{driveStats?.availableFormatted || '1,024 GB'}</strong> free ({driveStats?.usedPercentage || '0.00%'} used)</span>
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="w-full h-3 rounded-full bg-dark-950 border border-white/10 overflow-hidden p-0.5">
+                <div 
+                  className="h-full rounded-full bg-gradient-to-r from-pixel-cyan via-pixel-yellow to-emerald-400 shadow-neon-cyan transition-all duration-500"
+                  style={{ width: `${Math.max(0.5, parseFloat(driveStats?.usedPercentage || '0'))}%` }}
+                ></div>
+              </div>
+
+              {/* Breakdown Pills */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                <div className="p-3 rounded-xl bg-dark-950/60 border border-white/5 space-y-0.5">
+                  <span className="text-[10px] font-mono uppercase text-slate-400">Total Photos Received</span>
+                  <p className="text-lg font-brand font-black text-white">{driveStats?.totalPhotos || 0}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-dark-950/60 border border-white/5 space-y-0.5">
+                  <span className="text-[10px] font-mono uppercase text-slate-400">Round 1 (One Frame)</span>
+                  <p className="text-lg font-brand font-black text-pixel-yellow">{driveStats?.breakdown?.round1 || 0}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-dark-950/60 border border-white/5 space-y-0.5">
+                  <span className="text-[10px] font-mono uppercase text-slate-400">Round 2 (Shutter Hunt)</span>
+                  <p className="text-lg font-brand font-black text-pixel-cyan">{driveStats?.breakdown?.round2 || 0}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-dark-950/60 border border-white/5 space-y-0.5">
+                  <span className="text-[10px] font-mono uppercase text-slate-400">Round 3 (Exhibition)</span>
+                  <p className="text-lg font-brand font-black text-pixel-magenta">{driveStats?.breakdown?.round3 || 0}</p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Drive Search, Filters & View Toggle */}
+          <div className="glass-panel p-4 rounded-2xl border border-white/10 flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+              <div className="relative flex-1 sm:w-64">
+                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                <input
+                  type="text"
+                  placeholder="Search by Title, Name, Reg ID, Camera..."
+                  value={driveSearch}
+                  onChange={(e) => setDriveSearch(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && loadDriveData()}
+                  className="w-full pl-9 pr-4 py-2 rounded-xl bg-dark-900 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-pixel-cyan"
+                />
+              </div>
+
+              <select
+                value={driveRoundFilter}
+                onChange={(e) => setDriveRoundFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl bg-dark-900 border border-white/10 text-xs text-white"
+              >
+                <option value="ALL">All Competition Rounds</option>
+                <option value="1">Round 1 (One Frame, One Story)</option>
+                <option value="2">Round 2 (The Shutter Hunt)</option>
+                <option value="3">Round 3 (Final Exhibition)</option>
+              </select>
+
+              <select
+                value={driveSort}
+                onChange={(e) => setDriveSort(e.target.value)}
+                className="px-3 py-2 rounded-xl bg-dark-900 border border-white/10 text-xs text-white"
+              >
+                <option value="newest">Sort: Newest First</option>
+                <option value="oldest">Sort: Oldest First</option>
+                <option value="score_desc">Sort: Highest Score</option>
+              </select>
+            </div>
+
+            {/* View Switcher: Grid vs Table */}
+            <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+              <span className="text-xs font-mono text-slate-400">View:</span>
+              <div className="flex items-center rounded-xl bg-dark-900 border border-white/10 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setDriveViewMode('grid')}
+                  className={`p-1.5 rounded-lg text-xs transition-colors ${driveViewMode === 'grid' ? 'bg-pixel-cyan text-black' : 'text-slate-400 hover:text-white'}`}
+                  title="Grid Gallery View"
+                >
+                  <Grid className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDriveViewMode('table')}
+                  className={`p-1.5 rounded-lg text-xs transition-colors ${driveViewMode === 'table' ? 'bg-pixel-cyan text-black' : 'text-slate-400 hover:text-white'}`}
+                  title="Detailed List Table View"
+                >
+                  <List className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Drive Content */}
+          {driveLoading ? (
+            <div className="text-center py-16 text-slate-400 font-mono text-xs">
+              <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-pixel-cyan" />
+              Loading high-resolution repository...
+            </div>
+          ) : drivePhotos.length === 0 ? (
+            <div className="glass-panel p-12 rounded-2xl border border-white/10 text-center space-y-3">
+              <HardDrive className="w-12 h-12 text-slate-600 mx-auto" />
+              <p className="text-slate-300 font-mono text-sm">No photos found matching your current filter.</p>
+              <p className="text-slate-500 text-xs">When participants submit photos, they will automatically appear here with complete camera and storytelling information.</p>
+            </div>
+          ) : driveViewMode === 'grid' ? (
+            /* GRID VIEW */
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {drivePhotos.map((photo) => (
+                <div
+                  key={photo.submission_id}
+                  className="glass-panel rounded-2xl border border-white/10 hover:border-pixel-cyan/50 overflow-hidden flex flex-col justify-between transition-all group hover:shadow-neon-cyan"
+                >
+                  {/* Photo Thumbnail */}
+                  <div 
+                    onClick={() => setSelectedDrivePhoto(photo)}
+                    className="relative aspect-video sm:aspect-square bg-dark-950 overflow-hidden cursor-pointer"
+                  >
+                    <img
+                      src={photo.photo_path}
+                      alt={photo.photo_title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 opacity-80 group-hover:opacity-90 transition-opacity"></div>
+                    
+                    {/* Top Badges */}
+                    <div className="absolute top-2 left-2 flex items-center gap-1.5">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-black/70 backdrop-blur-md text-pixel-yellow border border-pixel-yellow/30">
+                        R{photo.round_number}
+                      </span>
+                      {photo.file_size_formatted && (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-black/70 backdrop-blur-md text-slate-300 border border-white/10">
+                          {photo.file_size_formatted}
+                        </span>
+                      )}
+                    </div>
+
+                    {photo.submission_status === 'SCORED' && (
+                      <div className="absolute top-2 right-2">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/90 text-black shadow-sm">
+                          ★ {photo.total_score}/100
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Bottom Title on Image */}
+                    <div className="absolute bottom-2 left-2 right-2">
+                      <h4 className="text-sm font-brand font-bold text-white line-clamp-1 group-hover:text-pixel-cyan transition-colors">
+                        "{photo.photo_title}"
+                      </h4>
+                      <p className="text-[11px] text-slate-300 font-sans line-clamp-1">
+                        By {photo.participant_name}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Metadata Content */}
+                  <div className="p-4 space-y-3 flex-1 flex flex-col justify-between bg-dark-900/60">
+                    <div className="space-y-2">
+                      {/* Camera Specs Pill */}
+                      {photo.camera_details ? (
+                        <div className="text-[11px] font-mono text-pixel-cyan bg-pixel-cyan/10 px-2 py-1 rounded-lg border border-pixel-cyan/20 truncate" title={photo.camera_details}>
+                          📷 {photo.camera_details}
+                        </div>
+                      ) : (
+                        <div className="text-[11px] font-mono text-slate-500 italic">
+                          📷 Device info not specified
+                        </div>
+                      )}
+
+                      {/* Pitch Snippet */}
+                      {photo.story_pitch && (
+                        <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed" title={photo.story_pitch}>
+                          "{photo.story_pitch}"
+                        </p>
+                      )}
+
+                      {/* Participant Details */}
+                      <div className="pt-2 border-t border-white/5 space-y-1 text-[11px] text-slate-400">
+                        <div className="flex justify-between">
+                          <span className="font-mono text-slate-500">Reg ID:</span>
+                          <span className="font-mono text-pixel-yellow font-bold">{photo.registration_id}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="font-mono text-slate-500">College:</span>
+                          <span className="text-slate-300 truncate max-w-[140px]" title={photo.college_name}>{photo.college_name}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="font-mono text-slate-500">Contact:</span>
+                          <span className="text-slate-300">{photo.participant_mobile}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="pt-3 border-t border-white/10 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDrivePhoto(photo)}
+                        className="flex-1 py-1.5 px-3 rounded-xl bg-dark-800 hover:bg-dark-700 text-xs font-mono font-medium text-slate-200 border border-white/10 hover:border-pixel-cyan flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-pixel-cyan" />
+                        <span>Inspect</span>
+                      </button>
+
+                      <a
+                        href={photo.photo_path}
+                        download={`${photo.registration_id}_R${photo.round_number}_${photo.photo_title.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="py-1.5 px-3 rounded-xl bg-dark-800 hover:bg-dark-700 text-xs font-mono font-medium text-slate-200 border border-white/10 hover:border-pixel-yellow flex items-center justify-center gap-1.5 transition-colors"
+                        title="Download Master Image"
+                      >
+                        <Download className="w-3.5 h-3.5 text-pixel-yellow" />
+                      </a>
+                    </div>
+                  </div>
+
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* TABLE LIST VIEW */
+            <div className="glass-panel rounded-2xl border border-white/10 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-dark-900 border-b border-white/10 text-slate-400 font-mono uppercase text-[11px]">
+                    <tr>
+                      <th className="p-4">Photo Preview</th>
+                      <th className="p-4">Participant & College</th>
+                      <th className="p-4">Round</th>
+                      <th className="p-4">Title & Story Pitch</th>
+                      <th className="p-4">Camera Specs</th>
+                      <th className="p-4">File Size</th>
+                      <th className="p-4">Score</th>
+                      <th className="p-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5 font-sans">
+                    {drivePhotos.map((photo) => (
+                      <tr key={photo.submission_id} className="hover:bg-white/5 transition-colors">
+                        <td className="p-4">
+                          <img
+                            src={photo.photo_path}
+                            alt={photo.photo_title}
+                            onClick={() => setSelectedDrivePhoto(photo)}
+                            className="w-16 h-12 object-cover rounded-lg border border-white/10 cursor-pointer hover:scale-105 transition-transform"
+                          />
+                        </td>
+                        <td className="p-4">
+                          <div className="font-bold text-white">{photo.participant_name}</div>
+                          <div className="font-mono text-[11px] text-pixel-yellow">{photo.registration_id}</div>
+                          <div className="text-[11px] text-slate-400 truncate max-w-[180px]">{photo.college_name}</div>
+                        </td>
+                        <td className="p-4">
+                          <span className="px-2.5 py-1 rounded text-[11px] font-mono font-bold bg-dark-800 border border-white/10 text-pixel-cyan">
+                            Round {photo.round_number}
+                          </span>
+                        </td>
+                        <td className="p-4 max-w-xs">
+                          <div className="font-bold text-slate-200 truncate">"{photo.photo_title}"</div>
+                          <div className="text-[11px] text-slate-400 line-clamp-1 italic">{photo.story_pitch || 'No pitch provided'}</div>
+                        </td>
+                        <td className="p-4">
+                          <div className="font-mono text-[11px] text-slate-300 max-w-[160px] truncate">
+                            {photo.camera_details || 'N/A'}
+                          </div>
+                        </td>
+                        <td className="p-4 font-mono text-[11px] text-slate-300">
+                          {photo.file_size_formatted}
+                        </td>
+                        <td className="p-4 font-mono font-bold">
+                          {photo.submission_status === 'SCORED' ? (
+                            <span className="text-amber-300">{photo.total_score} / 100</span>
+                          ) : (
+                            <span className="text-slate-500 font-normal">Pending</span>
+                          )}
+                        </td>
+                        <td className="p-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedDrivePhoto(photo)}
+                              className="px-2.5 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 text-slate-200 border border-white/10"
+                              title="Inspect Photo & Details"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                            <a
+                              href={photo.photo_path}
+                              download={`${photo.registration_id}_R${photo.round_number}.jpg`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-2.5 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 text-pixel-yellow border border-pixel-yellow/30"
+                              title="Download Master Image"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </a>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* INSPECTOR & FULL DOSSIER LIGHTBOX MODAL */}
+          {selectedDrivePhoto && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fadeIn">
+              <div className="bg-dark-900 border border-white/20 rounded-3xl max-w-5xl w-full max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col md:flex-row overflow-hidden">
+                
+                {/* Left Side: High-Res Photo Lightbox */}
+                <div className="md:w-3/5 bg-black flex flex-col items-center justify-center p-4 relative min-h-[300px] md:min-h-[500px]">
+                  <img
+                    src={selectedDrivePhoto.photo_path}
+                    alt={selectedDrivePhoto.photo_title}
+                    className="max-h-[70vh] w-auto max-w-full object-contain rounded-xl shadow-2xl"
+                  />
+                  
+                  <div className="absolute top-4 left-4 flex items-center gap-2">
+                    <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-black/80 backdrop-blur-md text-pixel-cyan border border-pixel-cyan/40">
+                      Round {selectedDrivePhoto.round_number}
+                    </span>
+                    <span className="px-3 py-1 rounded-full text-xs font-mono bg-black/80 backdrop-blur-md text-slate-300 border border-white/10">
+                      {selectedDrivePhoto.file_size_formatted}
+                    </span>
+                  </div>
+
+                  <a
+                    href={selectedDrivePhoto.photo_path}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="absolute bottom-4 right-4 px-3 py-1.5 rounded-xl bg-black/80 backdrop-blur-md text-slate-300 hover:text-white border border-white/20 text-xs font-mono flex items-center gap-1.5 transition-colors"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Full Size Tab
+                  </a>
+                </div>
+
+                {/* Right Side: Participant & Photo Dossier */}
+                <div className="md:w-2/5 p-6 sm:p-8 space-y-6 flex flex-col justify-between bg-dark-900 border-t md:border-t-0 md:border-l border-white/10">
+                  <div className="space-y-6">
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
+                      <div>
+                        <h3 className="text-xl font-brand font-black text-white">
+                          "{selectedDrivePhoto.photo_title}"
+                        </h3>
+                        <p className="text-xs font-mono text-pixel-cyan mt-0.5">
+                          {selectedDrivePhoto.round_title}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDrivePhoto(null)}
+                        className="p-2 rounded-xl bg-dark-800 hover:bg-dark-700 text-slate-400 hover:text-white transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Participant Information */}
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-mono uppercase tracking-wider text-pixel-yellow font-bold flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5" /> Participant Details
+                      </h4>
+                      <div className="p-3.5 rounded-xl bg-dark-950/70 border border-white/5 space-y-1.5 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Name:</span>
+                          <span className="font-bold text-white">{selectedDrivePhoto.participant_name}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Registration ID:</span>
+                          <span className="font-mono text-pixel-yellow font-bold">{selectedDrivePhoto.registration_id}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">College:</span>
+                          <span className="text-slate-200">{selectedDrivePhoto.college_name} ({selectedDrivePhoto.college_type})</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Course & Year:</span>
+                          <span className="text-slate-200">{selectedDrivePhoto.course} • {selectedDrivePhoto.academic_year}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Student ID:</span>
+                          <span className="font-mono text-slate-200">{selectedDrivePhoto.student_id}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Phone:</span>
+                          <span className="text-slate-200">{selectedDrivePhoto.participant_mobile}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Email:</span>
+                          <span className="text-slate-200">{selectedDrivePhoto.participant_email}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Camera & Equipment */}
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-mono uppercase tracking-wider text-pixel-cyan font-bold flex items-center gap-1.5">
+                        <Camera className="w-3.5 h-3.5" /> Camera & Equipment
+                      </h4>
+                      <div className="p-3 rounded-xl bg-dark-950/70 border border-white/5 text-xs font-mono text-slate-300">
+                        {selectedDrivePhoto.camera_details || 'Device specifications not provided by participant.'}
+                      </div>
+                    </div>
+
+                    {/* Storytelling Pitch */}
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-mono uppercase tracking-wider text-slate-300 font-bold">
+                        60-Second Storytelling Pitch
+                      </h4>
+                      <div className="p-3.5 rounded-xl bg-dark-950/70 border border-white/5 text-xs text-slate-300 leading-relaxed max-h-36 overflow-y-auto">
+                        {selectedDrivePhoto.story_pitch || 'No storytelling notes provided for this photograph.'}
+                      </div>
+                    </div>
+
+                    {/* Score (if scored) */}
+                    {selectedDrivePhoto.submission_status === 'SCORED' && (
+                      <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-mono font-bold text-amber-300 uppercase">Jury Score</span>
+                          <span className="text-base font-brand font-black text-amber-400">
+                            {selectedDrivePhoto.total_score} / 100
+                          </span>
+                        </div>
+                        {selectedDrivePhoto.judge_feedback && (
+                          <p className="text-xs text-slate-300 italic">
+                            "{selectedDrivePhoto.judge_feedback}"
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Modal Footer Actions */}
+                  <div className="pt-4 border-t border-white/10 flex items-center gap-3">
+                    <a
+                      href={selectedDrivePhoto.photo_path}
+                      download={`PXL_${selectedDrivePhoto.registration_id}_R${selectedDrivePhoto.round_number}_${selectedDrivePhoto.photo_title.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex-1 py-3 px-4 rounded-xl font-display font-bold text-xs bg-pixel-yellow hover:bg-pixel-yellowHover text-black shadow-neon-yellow flex items-center justify-center gap-2 transition-all"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>DOWNLOAD HIGH-RES MASTER</span>
+                    </a>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+          )}
+
         </div>
       )}
 
