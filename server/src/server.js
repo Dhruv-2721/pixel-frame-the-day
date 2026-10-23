@@ -40,8 +40,9 @@ const clientDistDir = path.resolve(__dirname, '../../client/dist');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// 1. Remove express signature fingerprint
+// 1. Remove express signature fingerprint and enable proxy trust for Render / Cloudflare
 app.disable('x-powered-by');
+app.set('trust proxy', 1);
 
 // 2. Comprehensive Security Headers with Content-Security-Policy (CSP)
 app.use(

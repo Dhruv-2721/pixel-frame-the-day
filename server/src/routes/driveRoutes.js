@@ -1,7 +1,7 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
-import { Archiver } from 'archiver';
+import { ZipArchive } from 'archiver';
 import { fileURLToPath } from 'url';
 import { queryGet, queryAll } from '../db.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
@@ -338,8 +338,15 @@ router.get('/download-zip', requireAuth, requireAdmin, async (req, res) => {
 
     const items = await queryAll(sql, params);
 
-    const archive = new Archiver('zip', {
+    const archive = new ZipArchive({
       zlib: { level: 6 } // Good balance of compression speed and file size
+    });
+
+    archive.on('error', (err) => {
+      console.error('Archive streaming error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to generate zip archive.' });
+      }
     });
 
     const timestamp = new Date().toISOString().slice(0, 10);
