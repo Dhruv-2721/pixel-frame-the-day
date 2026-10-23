@@ -115,13 +115,15 @@ export const Navbar = ({ currentView, setView, onOpenLeaderboard }) => {
               <Trophy className="w-4 h-4 text-amber-400" />
               Leaderboard
             </button>
-            <button 
-              onClick={() => navTo('verify')}
-              className={`flex items-center gap-1.5 text-sm font-medium transition-colors ${currentView === 'verify' ? 'text-pixel-cyan font-bold' : 'text-slate-300 hover:text-pixel-cyan'}`}
-            >
-              <QrCode className="w-4 h-4 text-pixel-cyan" />
-              Verify Ticket
-            </button>
+            {(isAdmin || isStaff) && (
+              <button 
+                onClick={() => navTo('verify')}
+                className={`flex items-center gap-1.5 text-sm font-medium transition-colors ${currentView === 'verify' ? 'text-pixel-cyan font-bold' : 'text-slate-300 hover:text-pixel-cyan'}`}
+              >
+                <QrCode className="w-4 h-4 text-pixel-cyan" />
+                Gate Scanner
+              </button>
+            )}
           </nav>
 
           {/* Action / Auth Buttons */}
@@ -230,13 +232,15 @@ export const Navbar = ({ currentView, setView, onOpenLeaderboard }) => {
             <Trophy className="w-4 h-4 text-amber-400" />
             Live Leaderboard
           </button>
-          <button 
-            onClick={() => navTo('verify')}
-            className="flex items-center gap-2 py-2 text-pixel-cyan font-medium"
-          >
-            <QrCode className="w-4 h-4" />
-            Verify Ticket
-          </button>
+          {(isAdmin || isStaff) && (
+            <button 
+              onClick={() => navTo('verify')}
+              className="flex items-center gap-2 py-2 text-pixel-cyan font-medium"
+            >
+              <QrCode className="w-4 h-4" />
+              Gate Scanner
+            </button>
+          )}
 
           <div className="pt-4 border-t border-white/10 flex flex-col gap-2">
             {!user ? (

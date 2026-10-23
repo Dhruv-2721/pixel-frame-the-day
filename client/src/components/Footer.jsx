@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Camera, MapPin, Calendar, Phone, Award, Mail, Heart } from 'lucide-react';
 
 export const Footer = ({ setView }) => {
@@ -71,11 +71,6 @@ export const Footer = ({ setView }) => {
               <li>
                 <button onClick={() => setView('login')} className="hover:text-white transition-colors">
                   Participant Login
-                </button>
-              </li>
-              <li>
-                <button onClick={() => setView('verify')} className="hover:text-pixel-cyan transition-colors">
-                  Ticket Authenticity Scanner
                 </button>
               </li>
             </ul>

@@ -430,13 +430,6 @@ export const ParticipantDashboard = ({ setView }) => {
                   <Ticket className="w-5 h-5" />
                   <span>VIEW E-TICKET PASS</span>
                 </button>
-                <button
-                  onClick={() => setView('verify')}
-                  className="w-full sm:w-auto px-6 py-4 rounded-xl font-display font-bold text-sm bg-dark-900 text-slate-200 border border-white/10 hover:border-white/30 flex items-center justify-center gap-2"
-                >
-                  <QrCode className="w-4 h-4 text-pixel-cyan" />
-                  <span>Verify Gate Authenticity</span>
-                </button>
               </div>
             </div>
           ) : payment?.status === 'UNDER_REVIEW' ? (

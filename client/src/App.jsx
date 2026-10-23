@@ -15,7 +15,7 @@ import { TicketVerificationPage } from './pages/TicketVerificationPage';
 const AppContent = () => {
   const [currentView, setView] = useState('home');
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
-  const { user, loading, refreshUser, isAdmin } = useAuth();
+  const { user, loading, refreshUser, isAdmin, isStaff } = useAuth();
 
   if (loading) {
     return (
@@ -49,7 +49,7 @@ const AppContent = () => {
         {currentView === 'dashboard' && (user ? <ParticipantDashboard setView={setView} /> : <LoginPage setView={setView} />)}
         {currentView === 'ticket' && (user ? <ETicketPage setView={setView} /> : <LoginPage setView={setView} />)}
         {currentView === 'admin' && (isAdmin ? <AdminDashboard setView={setView} /> : <LoginPage setView={setView} />)}
-        {currentView === 'verify' && <TicketVerificationPage setView={setView} />}
+        {currentView === 'verify' && ((isAdmin || isStaff) ? <TicketVerificationPage setView={setView} /> : <LoginPage setView={setView} />)}
       </main>
 
       <Footer setView={setView} />

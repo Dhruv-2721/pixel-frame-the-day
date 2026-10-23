@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { 
@@ -271,17 +271,6 @@ export const ETicketPage = ({ setView }) => {
           ))}
         </div>
 
-      </div>
-
-      {/* Ticket Verification Shortcut */}
-      <div className="text-center pt-2">
-        <button
-          onClick={() => setView('verify')}
-          className="text-xs font-mono text-pixel-cyan hover:underline inline-flex items-center gap-1.5"
-        >
-          <QrCode className="w-3.5 h-3.5" />
-          Test live gate scanner with Ticket #{ticket.ticket_number}
-        </button>
       </div>
 
     </div>
