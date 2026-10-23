@@ -154,10 +154,12 @@ router.post('/participants/:id/round', requireAuth, requireAdmin, async (req, re
   }
 });
 
-// CSV Export
+// CSV Export (Supports current filters or full participant export)
 router.get('/export-csv', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const rows = await queryAll(`
+    const { college_type, academic_year, payment_status, round_status, search } = req.query;
+
+    let sql = `
       SELECT 
         pt.registration_id,
         pt.full_name,
@@ -179,16 +181,59 @@ router.get('/export-csv', requireAuth, requireAdmin, async (req, res) => {
         pt.created_at
       FROM participants pt
       JOIN users u ON pt.user_id = u.id
-      LEFT JOIN payments p ON p.participant_id = pt.id
+      LEFT JOIN (
+        SELECT p1.*
+        FROM payments p1
+        INNER JOIN (
+          SELECT participant_id, MAX(created_at) as max_created
+          FROM payments
+          GROUP BY participant_id
+        ) p2 ON p1.participant_id = p2.participant_id AND p1.created_at = p2.max_created
+      ) p ON p.participant_id = pt.id
       LEFT JOIN tickets t ON t.participant_id = pt.id
-      ORDER BY pt.created_at DESC
-    `);
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (college_type && college_type !== 'ALL') {
+      sql += ' AND pt.college_type = ?';
+      params.push(college_type);
+    }
+
+    if (academic_year && academic_year !== 'ALL') {
+      sql += ' AND pt.academic_year LIKE ?';
+      params.push(`%${academic_year}%`);
+    }
+
+    if (payment_status && payment_status !== 'ALL') {
+      if (payment_status === 'NOT_SUBMITTED') {
+        sql += ' AND p.status IS NULL';
+      } else {
+        sql += ' AND p.status = ?';
+        params.push(payment_status);
+      }
+    }
+
+    if (round_status && round_status !== 'ALL') {
+      sql += ' AND pt.round_status = ?';
+      params.push(round_status);
+    }
+
+    if (search && search.trim()) {
+      sql += ' AND (pt.full_name LIKE ? OR pt.registration_id LIKE ? OR u.email LIKE ? OR pt.mobile LIKE ? OR pt.student_id LIKE ?)';
+      const s = `%${search.trim()}%`;
+      params.push(s, s, s, s, s);
+    }
+
+    sql += ' ORDER BY pt.created_at DESC';
+
+    const rows = await queryAll(sql, params);
 
     const headers = [
       'Registration ID', 'Full Name', 'Email', 'Mobile', 'College Name',
       'College Type', 'Course', 'Academic Year', 'Student ID', 'City',
-      'Round Status', 'Payment Status', 'Transaction ID', 'Amount',
-      'Ticket Number', 'Ticket Status', 'Checked In At', 'Registered At'
+      'Round Status', 'Payment Status', 'Transaction ID / UTR', 'Fee Paid (INR)',
+      'Ticket Number', 'Ticket Status', 'Gate Checked In At', 'Registration Timestamp'
     ];
 
     const escapeCsv = (val) => {
@@ -197,7 +242,7 @@ router.get('/export-csv', requireAuth, requireAdmin, async (req, res) => {
       return `"${str}"`;
     };
 
-    let csv = headers.join(',') + '\n';
+    let csv = headers.join(',') + '\r\n';
     for (const r of rows) {
       csv += [
         escapeCsv(r.registration_id),
@@ -218,12 +263,13 @@ router.get('/export-csv', requireAuth, requireAdmin, async (req, res) => {
         escapeCsv(r.ticket_status),
         escapeCsv(r.checked_in_at),
         escapeCsv(r.created_at)
-      ].join(',') + '\n';
+      ].join(',') + '\r\n';
     }
 
-    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="pixel_2026_participants.csv"');
-    return res.status(200).send(csv);
+    // Prepend UTF-8 BOM (\uFEFF) so Excel and Google Sheets open Unicode characters correctly
+    return res.status(200).send('\uFEFF' + csv);
   } catch (error) {
     console.error('CSV export error:', error);
     return res.status(500).json({ error: 'Failed to generate CSV export.' });

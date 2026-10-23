@@ -9,12 +9,18 @@ export const generateToken = (payload) => {
 
 export const requireAuth = async (req, res, next) => {
   try {
+    let token = null;
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (req.query && req.query.token) {
+      token = req.query.token;
+    }
+
+    if (!token) {
       return res.status(401).json({ error: 'Authentication required. Please log in.' });
     }
 
-    const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
 
     const user = await queryGet('SELECT id, email, role, created_at FROM users WHERE id = ?', [decoded.id]);

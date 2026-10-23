@@ -26,6 +26,7 @@ export const AdminDashboard = ({ setView }) => {
   const [partSearch, setPartSearch] = useState('');
   const [collegeFilter, setCollegeFilter] = useState('ALL');
   const [roundFilter, setRoundFilter] = useState('ALL');
+  const [exportingCsv, setExportingCsv] = useState(false);
 
   // Photo Submissions & Judging States
   const [adminSubmissions, setAdminSubmissions] = useState([]);
@@ -105,6 +106,41 @@ export const AdminDashboard = ({ setView }) => {
       setEmailLogs(res.logs || []);
     } catch (e) {
       console.error('Failed to load email logs:', e);
+    }
+  };
+
+  const handleExportCsv = async () => {
+    try {
+      setExportingCsv(true);
+      const csvText = await api.exportParticipantsCsv({
+        college_type: collegeFilter,
+        round_status: roundFilter,
+        search: partSearch
+      });
+      const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const timestamp = new Date().toISOString().slice(0, 10);
+      link.setAttribute('download', `pixel_2026_participants_${timestamp}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to export CSV via blob, falling back to direct URL:', err);
+      try {
+        const directUrl = api.getExportCsvUrl({
+          college_type: collegeFilter,
+          round_status: roundFilter,
+          search: partSearch
+        });
+        window.open(directUrl, '_blank');
+      } catch (fallbackErr) {
+        alert('Failed to export CSV: ' + (err.message || 'Please try again.'));
+      }
+    } finally {
+      setExportingCsv(false);
     }
   };
 
@@ -574,13 +610,16 @@ export const AdminDashboard = ({ setView }) => {
             </div>
 
             <div className="flex items-center gap-3 w-full sm:w-auto">
-              <a
-                href={api.getExportCsvUrl()}
-                className="px-4 py-2 rounded-xl bg-dark-900 hover:bg-dark-800 border border-white/10 text-xs font-mono font-bold text-slate-200 flex items-center gap-1.5"
+              <button
+                type="button"
+                onClick={handleExportCsv}
+                disabled={exportingCsv}
+                className="px-4 py-2 rounded-xl bg-dark-900 hover:bg-dark-800 border border-pixel-yellow/40 hover:border-pixel-yellow text-xs font-mono font-bold text-pixel-yellow hover:text-white flex items-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
+                title="Download full participant call-sheet in Excel / CSV format"
               >
-                <Download className="w-3.5 h-3.5" />
-                Export CSV
-              </a>
+                <Download className={`w-3.5 h-3.5 ${exportingCsv ? 'animate-bounce' : ''}`} />
+                <span>{exportingCsv ? 'Exporting...' : 'Export CSV'}</span>
+              </button>
             </div>
           </div>
 

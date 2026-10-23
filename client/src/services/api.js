@@ -94,7 +94,17 @@ export const api = {
     return apiRequest(`/admin/participants?${query}`, { method: 'GET' });
   },
   updateParticipantRound: (id, round_status) => apiRequest(`/admin/participants/${id}/round`, { method: 'POST', body: { round_status } }),
-  getExportCsvUrl: () => `${API_BASE}/admin/export-csv`,
+  exportParticipantsCsv: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiRequest(`/admin/export-csv${query ? `?${query}` : ''}`, { method: 'GET' });
+  },
+  getExportCsvUrl: (params = {}) => {
+    const p = { ...params };
+    const token = getAuthToken();
+    if (token) p.token = token;
+    const query = new URLSearchParams(p).toString();
+    return `${API_BASE}/admin/export-csv${query ? `?${query}` : ''}`;
+  },
   getAuditLogs: () => apiRequest('/admin/audit-logs', { method: 'GET' }),
   getEmailLogs: () => apiRequest('/admin/email-logs', { method: 'GET' }),
   createStaffUser: (payload) => apiRequest('/admin/users/create', { method: 'POST', body: payload }),
