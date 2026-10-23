@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Camera, Calendar, MapPin, Users, Award, ChevronRight, Sparkles, 
   Clock, ShieldCheck, HelpCircle, Phone, ArrowRight, Aperture, Eye, Image as ImageIcon 
@@ -50,10 +50,29 @@ export const HomePage = ({ setView }) => {
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-pixel-yellow/15 blur-[120px] pointer-events-none rounded-full"></div>
         <div className="absolute top-1/2 right-10 w-[400px] h-[300px] bg-pixel-cyan/10 blur-[100px] pointer-events-none rounded-full"></div>
 
+        {/* Top-Right Corner Official Festival Logo */}
+        <div className="hidden sm:flex absolute top-4 right-6 lg:top-6 lg:right-12 z-20 items-center">
+          <div className="bg-white/95 hover:bg-white px-3 py-1.5 rounded-2xl shadow-xl border border-white/20 transition-all hover:scale-105 flex items-center gap-2.5 backdrop-blur">
+            <img 
+              src="/ln_universe_logo.png" 
+              alt="LN UNIVERSE" 
+              className="h-9 lg:h-11 w-auto object-contain" 
+            />
+            <div className="border-l border-slate-300 pl-2 text-left">
+              <span className="text-[9px] font-mono font-bold tracking-wider text-purple-700 uppercase block">Presenting</span>
+              <span className="text-[11px] font-brand font-black text-slate-900 tracking-tight block">LN UNIVERSE</span>
+            </div>
+          </div>
+        </div>
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           
           {/* Header pill badges */}
           <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3 mb-6">
+            <div className="bg-white/95 hover:bg-white px-3 py-1 rounded-full shadow-sm flex items-center gap-2 transition-transform hover:scale-105">
+              <img src="/ln_universe_logo.png" alt="LN Universe" className="h-5 sm:h-6 w-auto object-contain" />
+              <span className="text-[11px] font-brand font-bold text-slate-900">LN UNIVERSE</span>
+            </div>
             <span className="px-3 py-1 rounded-full text-xs font-mono font-semibold bg-dark-800 border border-white/10 text-slate-300 flex items-center gap-1.5 shadow-sm">
               <span className="w-2 h-2 rounded-full bg-pixel-yellow animate-ping"></span>
               LNCT Group of Colleges, Bhopal

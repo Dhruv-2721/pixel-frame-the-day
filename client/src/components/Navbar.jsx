@@ -51,28 +51,39 @@ export const Navbar = ({ currentView, setView, onOpenLeaderboard }) => {
             onClick={() => navTo('home')}
             className="flex items-center gap-3 cursor-pointer group"
           >
+            {/* LN Universe Official Festival Logo */}
+            <div className="bg-white/95 hover:bg-white rounded-xl px-2 py-1 shadow-sm border border-white/20 transition-transform group-hover:scale-105 flex items-center justify-center">
+              <img 
+                src="/ln_universe_logo.png" 
+                alt="LN Universe" 
+                className="h-7 sm:h-8 w-auto object-contain" 
+              />
+            </div>
+
+            <div className="h-7 w-px bg-white/15 hidden sm:block"></div>
+
             <div className="relative">
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-pixel-yellow via-pixel-cyan to-pixel-magenta p-0.5 shadow-neon-yellow group-hover:scale-105 transition-transform">
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-tr from-pixel-yellow via-pixel-cyan to-pixel-magenta p-0.5 shadow-neon-yellow group-hover:scale-105 transition-transform">
                 <div className="w-full h-full bg-dark-900 rounded-[10px] flex items-center justify-center">
-                  <Camera className="w-6 h-6 text-pixel-yellow group-hover:rotate-12 transition-transform" />
+                  <Camera className="w-5 h-5 sm:w-6 sm:h-6 text-pixel-yellow group-hover:rotate-12 transition-transform" />
                 </div>
               </div>
-              <span className="absolute -top-1 -right-1 flex h-3 w-3">
+              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 sm:h-3 sm:w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pixel-cyan opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-pixel-cyan"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 bg-pixel-cyan"></span>
               </span>
             </div>
 
             <div>
-              <div className="flex items-center gap-2">
-                <span className="font-brand font-black text-2xl tracking-wider text-white group-hover:text-pixel-yellow transition-colors">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="font-brand font-black text-xl sm:text-2xl tracking-wider text-white group-hover:text-pixel-yellow transition-colors">
                   PIXEL
                 </span>
-                <span className="text-xs px-2 py-0.5 font-bold uppercase tracking-wider rounded bg-pixel-magenta/20 text-pixel-magenta border border-pixel-magenta/40">
+                <span className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 font-bold uppercase tracking-wider rounded bg-pixel-magenta/20 text-pixel-magenta border border-pixel-magenta/40">
                   LNCT
                 </span>
               </div>
-              <p className="text-[10px] uppercase font-mono tracking-widest text-slate-400">
+              <p className="text-[9px] sm:text-[10px] uppercase font-mono tracking-widest text-slate-400">
                 FRAME THE DAY • 29-31 OCT
               </p>
             </div>

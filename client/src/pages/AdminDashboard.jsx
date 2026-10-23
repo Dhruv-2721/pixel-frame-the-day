@@ -353,6 +353,9 @@ export const AdminDashboard = ({ setView }) => {
         </div>
 
         <div className="flex items-center gap-3">
+          <div className="bg-white/95 px-2.5 py-1 rounded-xl shadow-sm border border-white/20 hidden md:flex items-center">
+            <img src="/ln_universe_logo.png" alt="LN Universe" className="h-6 w-auto object-contain" />
+          </div>
           <button
             onClick={() => setView('verify')}
             className="px-4 py-2.5 rounded-xl bg-pixel-cyan hover:bg-cyan-400 text-black text-xs font-bold font-mono flex items-center gap-1.5 shadow-neon-cyan transition-all"

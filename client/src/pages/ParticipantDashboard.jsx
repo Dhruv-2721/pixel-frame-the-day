@@ -206,6 +206,18 @@ export const ParticipantDashboard = ({ setView }) => {
       
       {/* Participant Welcome & Registration Banner */}
       <div className="rounded-3xl glass-panel-glow p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
+        
+        {/* Top-Right Corner LN Universe Logo */}
+        <div className="absolute top-4 right-4 sm:top-5 sm:right-6 hidden sm:block">
+          <div className="bg-white/95 hover:bg-white px-2.5 py-1 rounded-xl shadow-md border border-white/20 transition-all hover:scale-105">
+            <img 
+              src="/ln_universe_logo.png" 
+              alt="LN UNIVERSE" 
+              className="h-7 sm:h-9 w-auto object-contain" 
+            />
+          </div>
+        </div>
+
         <div className="space-y-2 z-10">
           <div className="flex items-center gap-2">
             <span className="px-3 py-1 rounded-full text-xs font-mono font-bold uppercase bg-pixel-yellow text-black">
