@@ -5,8 +5,14 @@ server/node_modules/
 
 # Environment Variables
 .env
+*.env
+server/.env
 .env.local
 .env.*.local
+
+# Backups
+server/backups/*
+!server/backups/.gitkeep
 
 # Logs & Debug
 npm-debug.log*

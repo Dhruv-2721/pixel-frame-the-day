@@ -8,12 +8,41 @@ import { v4 as uuidv4 } from 'uuid';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const dbPath = path.resolve(__dirname, '../pixel_event.db');
+const backupDir = path.resolve(__dirname, '../backups');
 
-// Ensure db directory exists
+// Ensure db directory and backup directory exist
 const dbDir = path.dirname(dbPath);
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
+if (!fs.existsSync(backupDir)) {
+  fs.mkdirSync(backupDir, { recursive: true });
+}
+
+// Automated Database Backup & Retention Routine
+export const createDatabaseBackup = () => {
+  try {
+    if (!fs.existsSync(dbPath)) return;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const targetFile = path.join(backupDir, `backup_${timestamp}.db`);
+    fs.copyFileSync(dbPath, targetFile);
+    console.log(`[Backup] Automated database snapshot secured: ${path.basename(targetFile)}`);
+
+    // Rotate and keep the last 20 backups
+    const existing = fs.readdirSync(backupDir)
+      .filter(f => f.startsWith('backup_') && f.endsWith('.db'))
+      .map(f => ({ name: f, time: fs.statSync(path.join(backupDir, f)).mtimeMs }))
+      .sort((a, b) => b.time - a.time);
+
+    if (existing.length > 20) {
+      existing.slice(20).forEach(f => {
+        try { fs.unlinkSync(path.join(backupDir, f.name)); } catch (_) {}
+      });
+    }
+  } catch (err) {
+    console.error('[Backup] Automated database backup warning:', err.message);
+  }
+};
 
 export const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
@@ -316,4 +345,12 @@ export const initDb = async () => {
   }
 
   console.log('Database initialization completed.');
+
+  // Trigger automated backup snapshot
+  createDatabaseBackup();
+
+  // Schedule periodic snapshot every 6 hours permanently
+  setInterval(() => {
+    createDatabaseBackup();
+  }, 6 * 60 * 60 * 1000);
 };
