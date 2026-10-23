@@ -3,8 +3,8 @@ services:
     name: pixel-frame-the-day
     runtime: node
     plan: free
-    buildCommand: npm run build:all
-    startCommand: npm start
+    buildCommand: cd server && npm install && cd ../client && npm install && npm run build
+    startCommand: node server/src/server.js
     envVars:
       - key: NODE_ENV
         value: production
