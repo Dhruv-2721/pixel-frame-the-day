@@ -3,7 +3,8 @@ import {
   Shield, CheckCircle, XCircle, Clock, Users, Ticket, DollarSign, 
   Search, Filter, Download, Eye, AlertCircle, RefreshCw, Upload, 
   Settings, Award, FileText, ChevronRight, Check, X, Camera, Mail, Trophy,
-  HardDrive, Cloud, FolderArchive, Grid, List, ExternalLink, FileSpreadsheet
+  HardDrive, Cloud, FolderArchive, Grid, List, ExternalLink, FileSpreadsheet,
+  Database, Save, RotateCcw, ShieldCheck, UploadCloud
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -65,6 +66,17 @@ export const AdminDashboard = ({ setView }) => {
   const [selectedDrivePhoto, setSelectedDrivePhoto] = useState(null);
   const [exportingDriveCsv, setExportingDriveCsv] = useState(false);
 
+  // Backup & Disaster Recovery States
+  const [backupOverview, setBackupOverview] = useState(null);
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [backupActionLoading, setBackupActionLoading] = useState(false);
+  const [backupSuccessMsg, setBackupSuccessMsg] = useState('');
+  const [backupErrorMsg, setBackupErrorMsg] = useState('');
+  const [restoreFile, setRestoreFile] = useState(null);
+  const [restorePreview, setRestorePreview] = useState(null);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreResult, setRestoreResult] = useState(null);
+
   const loadData = async () => {
     setLoading(true);
     setError(null);
@@ -118,6 +130,97 @@ export const AdminDashboard = ({ setView }) => {
       setEmailLogs(res.logs || []);
     } catch (e) {
       console.error('Failed to load email logs:', e);
+    }
+  };
+
+  const loadBackupOverview = async () => {
+    setBackupLoading(true);
+    setBackupErrorMsg('');
+    try {
+      const data = await api.getBackupOverview();
+      setBackupOverview(data);
+    } catch (e) {
+      console.error('Failed to load backup overview:', e);
+      setBackupErrorMsg(e.message || 'Failed to load backup status.');
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
+  const handleManualSnapshot = async () => {
+    setBackupActionLoading(true);
+    setBackupSuccessMsg('');
+    setBackupErrorMsg('');
+    try {
+      const res = await api.triggerManualSnapshot();
+      setBackupSuccessMsg(res.message || 'Snapshot created successfully!');
+      await loadBackupOverview();
+    } catch (e) {
+      setBackupErrorMsg(e.message || 'Failed to create snapshot.');
+    } finally {
+      setBackupActionLoading(false);
+    }
+  };
+
+  const handleRestoreFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setRestoreFile(file);
+    setRestoreResult(null);
+    setBackupErrorMsg('');
+    setBackupSuccessMsg('');
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target.result);
+        if (parsed && parsed.tables) {
+          setRestorePreview({
+            exportedAt: parsed.exported_at,
+            exportedBy: parsed.exported_by,
+            users: parsed.tables.users?.length || 0,
+            participants: parsed.tables.participants?.length || 0,
+            payments: parsed.tables.payments?.length || 0,
+            tickets: parsed.tables.tickets?.length || 0,
+            submissions: parsed.tables.submissions?.length || 0,
+            announcements: parsed.tables.announcements?.length || 0
+          });
+        } else {
+          setBackupErrorMsg('Selected file is not a valid PIXEL backup JSON. Missing "tables" object.');
+          setRestorePreview(null);
+        }
+      } catch (err) {
+        setBackupErrorMsg('Failed to parse backup JSON file: ' + err.message);
+        setRestorePreview(null);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!restoreFile) return;
+    if (!window.confirm('Are you sure you want to restore data from this backup? Missing participants, payments, and photos will be safely restored and recovered.')) {
+      return;
+    }
+
+    setRestoring(true);
+    setBackupErrorMsg('');
+    setBackupSuccessMsg('');
+    try {
+      const formData = new FormData();
+      formData.append('backup_file', restoreFile);
+      const res = await api.restoreBackupFromFile(formData);
+      setRestoreResult(res);
+      setBackupSuccessMsg(res.message || 'Restoration complete!');
+      setRestoreFile(null);
+      setRestorePreview(null);
+      await loadBackupOverview();
+      await loadData();
+    } catch (err) {
+      console.error('Restore error:', err);
+      setBackupErrorMsg(err.message || 'Restoration failed.');
+    } finally {
+      setRestoring(false);
     }
   };
 
@@ -214,6 +317,8 @@ export const AdminDashboard = ({ setView }) => {
       loadEmailLogs();
     } else if (activeTab === 'drive') {
       loadDriveData();
+    } else if (activeTab === 'backup') {
+      loadBackupOverview();
     }
   }, [activeTab, subRoundFilter, subStatusFilter, driveRoundFilter, driveSort]);
 
@@ -537,6 +642,21 @@ export const AdminDashboard = ({ setView }) => {
         >
           <Mail className="w-3.5 h-3.5" />
           Email Deliveries ({emailLogs.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('backup')}
+          className={`px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 border ${
+            activeTab === 'backup'
+              ? 'bg-gradient-to-r from-emerald-400 to-teal-400 text-black border-transparent shadow-lg shadow-emerald-400/20'
+              : 'bg-dark-900 text-slate-300 hover:text-white border-emerald-500/40 hover:border-emerald-500'
+          }`}
+        >
+          <Database className="w-3.5 h-3.5 text-emerald-400" />
+          <span>All Data Backup</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/40 text-emerald-400 font-mono font-bold">
+            SAFE
+          </span>
         </button>
       </div>
 
@@ -1619,6 +1739,398 @@ export const AdminDashboard = ({ setView }) => {
                 </div>
               ))
             )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB: ALL DATA BACKUP & DISASTER RECOVERY */}
+      {activeTab === 'backup' && (
+        <div className="space-y-8 animate-fadeIn">
+          {/* Header Vault Hero */}
+          <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-emerald-500/30 relative overflow-hidden bg-gradient-to-br from-dark-950 via-dark-900 to-dark-950">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+            
+            <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider bg-emerald-400/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    DISASTER RECOVERY & ALL-DATA VAULT
+                  </span>
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-dark-800 text-slate-300 border border-white/10">
+                    LNCT GROUP OF COLLEGES
+                  </span>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-brand font-black text-white tracking-wide">
+                  Master System Backup & Recovery
+                </h2>
+                <p className="text-slate-400 text-xs sm:text-sm max-w-2xl font-sans">
+                  Never worry about disappearing data or cloud restarts. Download complete, restorable snapshots of all participants, payments, verified ticket records, and competition photo submissions with 1 click.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={loadBackupOverview}
+                  disabled={backupLoading}
+                  className="px-4 py-2.5 rounded-xl bg-dark-800 hover:bg-dark-700 text-slate-300 hover:text-white text-xs font-mono flex items-center gap-2 border border-white/10 transition-colors"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${backupLoading ? 'animate-spin' : ''}`} />
+                  Refresh Status
+                </button>
+                <button
+                  type="button"
+                  onClick={handleManualSnapshot}
+                  disabled={backupActionLoading}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-black text-xs font-bold font-mono shadow-lg shadow-emerald-400/20 flex items-center gap-2 transition-all"
+                >
+                  <Save className="w-4 h-4" />
+                  {backupActionLoading ? 'Securing Snapshot...' : 'Create Snapshot Now'}
+                </button>
+              </div>
+            </div>
+
+            {/* Notification messages */}
+            {backupSuccessMsg && (
+              <div className="mt-6 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-mono flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span>{backupSuccessMsg}</span>
+              </div>
+            )}
+            {backupErrorMsg && (
+              <div className="mt-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{backupErrorMsg}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Metrics of Protected Data */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="glass-panel p-4 rounded-2xl border border-white/10 space-y-1">
+              <span className="text-[11px] font-mono text-slate-400">Total Participants</span>
+              <div className="text-2xl font-black font-brand text-pixel-cyan">
+                {backupOverview?.counts?.participants ?? '...'}
+              </div>
+              <div className="text-[10px] text-slate-500 font-mono">Full rosters & college info</div>
+            </div>
+
+            <div className="glass-panel p-4 rounded-2xl border border-white/10 space-y-1">
+              <span className="text-[11px] font-mono text-slate-400">Payments & Receipts</span>
+              <div className="text-2xl font-black font-brand text-pixel-yellow">
+                {backupOverview?.counts?.payments?.total ?? '...'}
+              </div>
+              <div className="text-[10px] text-slate-500 font-mono">
+                {backupOverview?.counts?.payments?.verified || 0} Verified • ₹{backupOverview?.counts?.payments?.totalRevenue || 0}
+              </div>
+            </div>
+
+            <div className="glass-panel p-4 rounded-2xl border border-white/10 space-y-1">
+              <span className="text-[11px] font-mono text-slate-400">Photos in Vault</span>
+              <div className="text-2xl font-black font-brand text-purple-400">
+                {backupOverview?.counts?.submissions?.total ?? '...'}
+              </div>
+              <div className="text-[10px] text-slate-500 font-mono">Rounds 1, 2, 3 entries</div>
+            </div>
+
+            <div className="glass-panel p-4 rounded-2xl border border-white/10 space-y-1">
+              <span className="text-[11px] font-mono text-slate-400">Database Engine</span>
+              <div className="text-sm font-bold font-mono text-emerald-400 truncate">
+                {backupOverview?.databaseEngine ? backupOverview.databaseEngine.split(' ')[0] : 'SQLite'}
+              </div>
+              <div className="text-[10px] text-slate-500 font-mono">
+                {backupOverview?.databaseSizeFormatted || 'Protected'}
+              </div>
+            </div>
+          </div>
+
+          {/* 3 ONE-CLICK DOWNLOAD OPTIONS */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-brand font-black text-white flex items-center gap-2">
+                <Download className="w-5 h-5 text-emerald-400" />
+                Download System Backups
+              </h3>
+              <span className="text-xs font-mono text-slate-400">Direct 1-Click Downloads</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              
+              {/* Option 1: Master JSON Backup */}
+              <div className="glass-panel p-6 rounded-3xl border border-emerald-500/40 relative overflow-hidden flex flex-col justify-between hover:border-emerald-500 transition-all group bg-gradient-to-b from-dark-900 to-dark-950">
+                <div className="space-y-4">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+                    <Database className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-400/20 text-emerald-400">
+                      RECOMMENDED FOR RESTORE
+                    </span>
+                    <h4 className="text-xl font-brand font-black text-white mt-1">Master JSON Backup</h4>
+                    <p className="text-slate-400 text-xs mt-1 leading-relaxed">
+                      Complete database dump containing all 9 tables (users, participants, payments, tickets, submissions, event settings) plus all embedded base64 photo buffers.
+                    </p>
+                  </div>
+                  <ul className="text-[11px] text-slate-300 font-mono space-y-1 border-t border-white/5 pt-3">
+                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-400" /> 100% restorable anytime</li>
+                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-400" /> Includes all photo base64 data</li>
+                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-400" /> Portable across any server</li>
+                  </ul>
+                </div>
+
+                <div className="pt-6">
+                  <a
+                    href={api.getBackupJsonUrl()}
+                    download
+                    className="w-full py-3.5 px-4 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-black text-xs font-display font-extrabold tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-emerald-400/20 transition-all"
+                  >
+                    <Download className="w-4 h-4" />
+                    DOWNLOAD MASTER JSON
+                  </a>
+                </div>
+              </div>
+
+              {/* Option 2: Full System ZIP Archive */}
+              <div className="glass-panel p-6 rounded-3xl border border-pixel-cyan/40 relative overflow-hidden flex flex-col justify-between hover:border-pixel-cyan transition-all group bg-gradient-to-b from-dark-900 to-dark-950">
+                <div className="space-y-4">
+                  <div className="w-12 h-12 rounded-2xl bg-pixel-cyan/10 border border-pixel-cyan/30 flex items-center justify-center text-pixel-cyan group-hover:scale-110 transition-transform">
+                    <FolderArchive className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-pixel-cyan/20 text-pixel-cyan">
+                      COMPLETE SYSTEM ARCHIVE
+                    </span>
+                    <h4 className="text-xl font-brand font-black text-white mt-1">Full System ZIP Archive</h4>
+                    <p className="text-slate-400 text-xs mt-1 leading-relaxed">
+                      All-in-one ZIP archive containing Master JSON dump + CSV roster spreadsheet + SQLite database file + actual image files in organized folders.
+                    </p>
+                  </div>
+                  <ul className="text-[11px] text-slate-300 font-mono space-y-1 border-t border-white/5 pt-3">
+                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-pixel-cyan" /> Master JSON + CSV spreadsheet</li>
+                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-pixel-cyan" /> Submissions organized by Round</li>
+                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-pixel-cyan" /> Payment screenshots included</li>
+                  </ul>
+                </div>
+
+                <div className="pt-6">
+                  <a
+                    href={api.getBackupZipUrl()}
+                    download
+                    className="w-full py-3.5 px-4 rounded-xl bg-pixel-cyan hover:bg-cyan-300 text-black text-xs font-display font-extrabold tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-pixel-cyan/20 transition-all"
+                  >
+                    <Download className="w-4 h-4" />
+                    DOWNLOAD SYSTEM ZIP
+                  </a>
+                </div>
+              </div>
+
+              {/* Option 3: Raw SQLite Database Snapshot */}
+              <div className="glass-panel p-6 rounded-3xl border border-white/10 relative overflow-hidden flex flex-col justify-between hover:border-white/20 transition-all group bg-gradient-to-b from-dark-900 to-dark-950">
+                <div className="space-y-4">
+                  <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-white group-hover:scale-110 transition-transform">
+                    <HardDrive className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-white/10 text-slate-300">
+                      RAW BINARY SNAPSHOT
+                    </span>
+                    <h4 className="text-xl font-brand font-black text-white mt-1">Raw Database File (.db)</h4>
+                    <p className="text-slate-400 text-xs mt-1 leading-relaxed">
+                      Download the live SQLite <code className="text-pixel-cyan font-mono">pixel_event.db</code> binary file. Can be directly opened in DB Browser for SQLite or SQLite CLI.
+                    </p>
+                  </div>
+                  <ul className="text-[11px] text-slate-300 font-mono space-y-1 border-t border-white/5 pt-3">
+                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-slate-400" /> Direct SQLite binary snapshot</li>
+                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-slate-400" /> Open in any SQLite reader</li>
+                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-slate-400" /> Instant local inspection</li>
+                  </ul>
+                </div>
+
+                <div className="pt-6">
+                  <a
+                    href={api.getDatabaseDownloadUrl()}
+                    download
+                    className="w-full py-3.5 px-4 rounded-xl bg-dark-800 hover:bg-dark-700 text-white border border-white/10 text-xs font-display font-extrabold tracking-wider flex items-center justify-center gap-2 transition-all"
+                  >
+                    <Download className="w-4 h-4" />
+                    DOWNLOAD .DB FILE
+                  </a>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* EMERGENCY RESTORE & DISASTER RECOVERY STATION */}
+          <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-amber-500/30 bg-gradient-to-br from-dark-950 via-dark-900 to-dark-950 space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
+              <div className="space-y-1">
+                <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-amber-400/10 text-amber-400 border border-amber-500/30 flex items-center gap-1.5 w-fit">
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  EMERGENCY DATA RESTORATION STATION
+                </span>
+                <h3 className="text-2xl font-brand font-black text-white">
+                  Restore Data from Master Backup
+                </h3>
+                <p className="text-slate-400 text-xs max-w-2xl font-sans">
+                  If any participant, payment, photo, or ticket data disappears or gets deleted, upload any previously downloaded <code className="text-emerald-400 font-mono">pixel_master_backup_*.json</code> file below. The system will safely verify and recover all missing records and restore physical photos back into the server!
+                </p>
+              </div>
+            </div>
+
+            {/* File Upload Drop Area */}
+            <div className="space-y-4">
+              <label className="block p-6 rounded-2xl border-2 border-dashed border-white/20 hover:border-amber-400/50 cursor-pointer bg-dark-900/50 hover:bg-dark-800/50 transition-all text-center">
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleRestoreFileSelect}
+                  className="hidden"
+                />
+                <div className="flex flex-col items-center justify-center gap-2">
+                  <UploadCloud className="w-8 h-8 text-amber-400" />
+                  <span className="text-sm font-bold text-white">
+                    {restoreFile ? restoreFile.name : 'Select or Drop Master Backup JSON File'}
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">
+                    {restoreFile
+                      ? `${(restoreFile.size / 1024 / 1024).toFixed(2)} MB • Ready for Verification`
+                      : 'Supports pixel_master_backup_*.json files'}
+                  </span>
+                </div>
+              </label>
+
+              {/* Backup Inspection Preview */}
+              {restorePreview && (
+                <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-4 animate-fadeIn">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono font-bold text-amber-300 uppercase flex items-center gap-1.5">
+                      <CheckCircle className="w-4 h-4 text-emerald-400" />
+                      Backup Verified & Ready to Restore
+                    </span>
+                    <span className="text-[11px] font-mono text-slate-400">
+                      Exported on {new Date(restorePreview.exportedAt).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+                    <div className="p-3 rounded-xl bg-dark-900 border border-white/10">
+                      <div className="text-slate-400 text-[10px]">Participants</div>
+                      <div className="text-lg font-bold text-pixel-cyan">{restorePreview.participants}</div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-dark-900 border border-white/10">
+                      <div className="text-slate-400 text-[10px]">Payments</div>
+                      <div className="text-lg font-bold text-pixel-yellow">{restorePreview.payments}</div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-dark-900 border border-white/10">
+                      <div className="text-slate-400 text-[10px]">Photo Submissions</div>
+                      <div className="text-lg font-bold text-purple-400">{restorePreview.submissions}</div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-dark-900 border border-white/10">
+                      <div className="text-slate-400 text-[10px]">Gate Tickets</div>
+                      <div className="text-lg font-bold text-emerald-400">{restorePreview.tickets}</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRestoreFile(null);
+                        setRestorePreview(null);
+                      }}
+                      className="text-xs text-slate-400 hover:text-white font-mono"
+                    >
+                      Cancel / Select Another File
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmRestore}
+                      disabled={restoring}
+                      className="px-6 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-black text-xs font-bold font-mono tracking-wider shadow-lg flex items-center gap-2"
+                    >
+                      <RotateCcw className={`w-4 h-4 ${restoring ? 'animate-spin' : ''}`} />
+                      {restoring ? 'RESTORING SYSTEM DATA...' : 'CONFIRM & RESTORE ALL DATA'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Restoration Success Summary */}
+              {restoreResult && (
+                <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-3 animate-fadeIn">
+                  <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+                    <CheckCircle className="w-5 h-5 shrink-0" />
+                    <span>{restoreResult.message}</span>
+                  </div>
+                  {restoreResult.restoredCounts && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] font-mono text-slate-300 pt-2">
+                      <div>Users Restored: <strong className="text-emerald-400">+{restoreResult.restoredCounts.usersRestored}</strong></div>
+                      <div>Participants: <strong className="text-emerald-400">+{restoreResult.restoredCounts.participantsRestored}</strong></div>
+                      <div>Payments: <strong className="text-emerald-400">+{restoreResult.restoredCounts.paymentsRestored}</strong></div>
+                      <div>Photos: <strong className="text-emerald-400">+{restoreResult.restoredCounts.submissionsRestored}</strong></div>
+                      <div>Tickets: <strong className="text-emerald-400">+{restoreResult.restoredCounts.ticketsRestored}</strong></div>
+                      <div>Files to Disk: <strong className="text-emerald-400">+{restoreResult.restoredCounts.filesRestored}</strong></div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* AUTOMATED SNAPSHOTS ARCHIVE LIST */}
+          <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-white/10 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-brand font-black text-white flex items-center gap-2">
+                  <Save className="w-5 h-5 text-pixel-cyan" />
+                  Automated Database Snapshot History
+                </h3>
+                <p className="text-xs text-slate-400">
+                  The server automatically secures a fresh snapshot every 6 hours and retains the latest 20 snapshots.
+                </p>
+              </div>
+              <span className="text-xs font-mono px-2.5 py-1 rounded-full bg-dark-800 text-slate-300 border border-white/10">
+                {backupOverview?.automatedSnapshots?.length || 0} Snapshots Available
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              {backupOverview?.automatedSnapshots?.length === 0 ? (
+                <div className="text-center py-8 text-slate-500 text-xs font-mono">
+                  No automated snapshots recorded yet. Click "Create Snapshot Now" above to generate one immediately.
+                </div>
+              ) : (
+                backupOverview?.automatedSnapshots?.slice(0, 8).map((snap, idx) => (
+                  <div
+                    key={snap.filename || idx}
+                    className="p-3.5 rounded-xl bg-dark-900 border border-white/5 flex items-center justify-between gap-4 hover:border-white/10 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Database className="w-4 h-4 text-slate-400 shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-xs font-mono text-white font-bold truncate">
+                          {snap.filename}
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-mono">
+                          {snap.sizeFormatted} &bull; Created {new Date(snap.createdAt).toLocaleString('en-IN')}
+                        </div>
+                      </div>
+                    </div>
+
+                    <a
+                      href={api.getSnapshotDownloadUrl(snap.filename)}
+                      download
+                      className="px-3 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 text-slate-300 hover:text-white text-[11px] font-mono flex items-center gap-1.5 border border-white/10 transition-colors shrink-0"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Download
+                    </a>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}

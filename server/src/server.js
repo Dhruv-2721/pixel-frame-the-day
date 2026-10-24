@@ -15,6 +15,7 @@ import adminRoutes from './routes/adminRoutes.js';
 import submissionRoutes from './routes/submissionRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import driveRoutes from './routes/driveRoutes.js';
+import backupRoutes from './routes/backupRoutes.js';
 import {
   globalLimiter,
   authLimiter,
@@ -143,6 +144,7 @@ app.use('/api/admin/settings', eventRoutes);
 app.use('/api/submissions', submissionRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin/drive', driveRoutes);
+app.use('/api/admin/backup', backupRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

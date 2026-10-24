@@ -32,5 +32,9 @@ Thumbs.db
 # Uploaded runtime receipts/photos
 server/uploads/receipts/*
 server/uploads/photos/*
+server/uploads/payment_proofs/*
+server/uploads/submissions/*
 !server/uploads/receipts/.gitkeep
 !server/uploads/photos/.gitkeep
+!server/uploads/payment_proofs/.gitkeep
+!server/uploads/submissions/.gitkeep

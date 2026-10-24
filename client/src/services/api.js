@@ -132,6 +132,28 @@ export const api = {
     return `${API_BASE}/submissions/${id}/download?token=${encodeURIComponent(token)}`;
   },
 
+  // All-Data Backup & Disaster Recovery
+  getBackupOverview: () => apiRequest('/admin/backup/overview', { method: 'GET' }),
+  triggerManualSnapshot: () => apiRequest('/admin/backup/create-snapshot', { method: 'POST' }),
+  getBackupJsonUrl: () => {
+    const token = getAuthToken() || '';
+    return `${API_BASE}/admin/backup/export-json?token=${encodeURIComponent(token)}`;
+  },
+  getBackupZipUrl: () => {
+    const token = getAuthToken() || '';
+    return `${API_BASE}/admin/backup/export-zip?token=${encodeURIComponent(token)}`;
+  },
+  getDatabaseDownloadUrl: () => {
+    const token = getAuthToken() || '';
+    return `${API_BASE}/admin/backup/download-db?token=${encodeURIComponent(token)}`;
+  },
+  getSnapshotDownloadUrl: (filename) => {
+    const token = getAuthToken() || '';
+    return `${API_BASE}/admin/backup/snapshot/${encodeURIComponent(filename)}?token=${encodeURIComponent(token)}`;
+  },
+  restoreBackupFromFile: (formData) => apiRequest('/admin/backup/restore-json', { method: 'POST', body: formData }),
+  restoreBackupFromJson: (payload) => apiRequest('/admin/backup/restore-json', { method: 'POST', body: payload }),
+
   // Notifications SSE URL
   getNotificationStreamUrl: () => `${API_BASE}/notifications/stream?token=${getAuthToken() || ''}`
 };
