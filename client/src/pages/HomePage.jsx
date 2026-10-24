@@ -486,7 +486,7 @@ export const HomePage = ({ setView }) => {
               Who is eligible to participate?
             </h4>
             <p className="text-xs text-slate-300 pl-6 leading-relaxed">
-              Per official guidelines: Students from <strong>LNCT Group of Colleges</strong> must be in their <strong>2nd, 3rd, or 4th year</strong>. 
+              Per official guidelines: Students from <strong>LNCT Group of Colleges</strong> must be in their <strong>2nd, 3rd, 4th, or 5th year</strong>. 
               Participants from <strong>other colleges and universities</strong> are welcome across all academic years!
             </p>
           </div>

@@ -60,9 +60,9 @@ export const RegisterPage = ({ setView }) => {
     if (!formData.student_id.trim()) return 'Please enter your Student ID or Enrollment number.';
 
     if (formData.college_type === 'LNCT') {
-      const allowed = ['2nd Year', '3rd Year', '4th Year', 'Other'];
+      const allowed = ['2nd Year', '3rd Year', '4th Year', '5th Year', 'Other'];
       if (!allowed.includes(formData.academic_year)) {
-        return 'Per event rules, LNCT students must be in their 2nd, 3rd, or 4th year (or Other).';
+        return 'Per event rules, LNCT students must be in their 2nd, 3rd, 4th, or 5th year.';
       }
     }
     return null;
@@ -300,7 +300,7 @@ export const RegisterPage = ({ setView }) => {
                     }`}
                   >
                     <p className="text-sm font-bold">LNCT Group</p>
-                    <p className="text-[10px] text-slate-400">2nd to 4th Year & other eligible students</p>
+                    <p className="text-[10px] text-slate-400">2nd to 5th Year eligible students</p>
                   </button>
 
                   <button
@@ -321,7 +321,7 @@ export const RegisterPage = ({ setView }) => {
               {/* Specific LNCT Eligibility Rule Banner */}
               {formData.college_type === 'LNCT' && (
                 <div className="p-3 rounded-xl bg-pixel-yellow/10 border border-pixel-yellow/30 text-xs text-amber-200">
-                  ⚡ <strong>LNCT Rule:</strong> Per event guidelines, LNCT 1st year students are restricted. Only 2nd, 3rd, and 4th year LNCT students can participate.
+                  ⚡ <strong>LNCT Rule:</strong> Per event guidelines, LNCT 1st year students are restricted. 2nd, 3rd, 4th, and 5th year LNCT students can participate.
                 </div>
               )}
 
@@ -372,7 +372,7 @@ export const RegisterPage = ({ setView }) => {
                     <option value="2nd Year">2nd Year</option>
                     <option value="3rd Year">3rd Year</option>
                     <option value="4th Year">4th Year</option>
-                    <option value="Other">Other</option>
+                    <option value="5th Year">5th Year</option>
                     {formData.college_type === 'OTHER' && (
                       <option value="Postgraduate">Postgraduate</option>
                     )}
