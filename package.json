@@ -4,7 +4,7 @@
   "description": "Full-Stack Photography Event Registration, Payment Verification & E-Ticket Management System",
   "type": "module",
   "scripts": {
-    "build": "cd client && npm run build",
+    "build": "cd client && npm install --include=dev && npm run build && cd ../server && npm install",
     "build:all": "cd server && npm install && cd ../client && npm install --include=dev && npm run build",
     "start": "node server/src/server.js",
     "server": "node server/src/server.js",

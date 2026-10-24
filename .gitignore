@@ -20,8 +20,8 @@ yarn-debug.log*
 yarn-error.log*
 *.log
 
-# Production build output
-dist/
+# Production build output (client/dist tracked for guaranteed deployment)
+# dist/
 
 # OS and Editor files
 .DS_Store
