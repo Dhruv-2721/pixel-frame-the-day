@@ -94,6 +94,7 @@ router.get('/photos', requireAuth, requireAdmin, async (req, res) => {
 
     let sql = `
       SELECT 
+        s.id,
         s.id as submission_id,
         s.round_number,
         s.title as photo_title,
@@ -321,7 +322,7 @@ router.get('/download-zip', requireAuth, requireAdmin, async (req, res) => {
 
     let sql = `
       SELECT 
-        s.id, s.round_number, s.title, s.caption, s.photo_path, s.camera_details,
+        s.id, s.round_number, s.title, s.caption, s.photo_path, s.photo_data, s.camera_details,
         s.total_score, s.judge_feedback, s.created_at,
         pt.registration_id, pt.full_name, pt.college_name, pt.student_id, u.email, pt.mobile
       FROM submissions s
@@ -392,6 +393,16 @@ router.get('/download-zip', requireAuth, requireAdmin, async (req, res) => {
 
       if (fs.existsSync(diskPath)) {
         archive.file(diskPath, { name: archiveFilename });
+      } else if (it.photo_data) {
+        // Fallback recovery from database buffer
+        try {
+          const match = it.photo_data.match(/^data:([^;]+);base64,(.+)$/);
+          const base64Content = match ? match[2] : it.photo_data;
+          const buffer = Buffer.from(base64Content, 'base64');
+          archive.append(buffer, { name: archiveFilename });
+        } catch (e) {
+          console.warn(`Failed to recover photo ${it.id} from database buffer:`, e.message);
+        }
       }
     }
 
@@ -402,6 +413,59 @@ router.get('/download-zip', requireAuth, requireAdmin, async (req, res) => {
     if (!res.headersSent) {
       return res.status(500).json({ error: 'Failed to create zip archive.' });
     }
+  }
+});
+
+/**
+ * 5. GET /api/admin/drive/download-photo/:id
+ * Direct, authenticated single photo download with forced attachment headers
+ */
+router.get('/download-photo/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const item = await queryGet(`
+      SELECT s.*, pt.registration_id, pt.full_name 
+      FROM submissions s 
+      JOIN participants pt ON s.participant_id = pt.id 
+      WHERE s.id = ?
+    `, [id]);
+
+    if (!item) {
+      return res.status(404).json({ error: 'Photo not found in drive.' });
+    }
+
+    const cleanTitle = (item.title || 'Photo').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const cleanReg = (item.registration_id || 'PXL').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const downloadFilename = `PXL_${cleanReg}_R${item.round_number}_${cleanTitle}.jpg`;
+
+    const diskPath = path.join(submissionsDir, path.basename(item.photo_path));
+
+    if (fs.existsSync(diskPath)) {
+      res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
+      return res.sendFile(diskPath);
+    }
+
+    if (item.photo_data) {
+      const match = item.photo_data.match(/^data:([^;]+);base64,(.+)$/);
+      const mime = match ? match[1] : 'image/jpeg';
+      const base64Content = match ? match[2] : item.photo_data;
+      const buffer = Buffer.from(base64Content, 'base64');
+
+      try {
+        const dir = path.dirname(diskPath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(diskPath, buffer);
+      } catch (_) {}
+
+      res.setHeader('Content-Type', mime);
+      res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
+      return res.send(buffer);
+    }
+
+    return res.status(404).json({ error: 'Master image file is currently unavailable.' });
+  } catch (err) {
+    console.error('Download single drive photo error:', err);
+    return res.status(500).json({ error: 'Failed to download master photo.' });
   }
 });
 

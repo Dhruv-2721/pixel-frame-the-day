@@ -1404,11 +1404,8 @@ export const AdminDashboard = ({ setView }) => {
                   {/* Modal Footer Actions */}
                   <div className="pt-4 border-t border-white/10 flex items-center gap-3">
                     <a
-                      href={selectedDrivePhoto.photo_path}
-                      download={`PXL_${selectedDrivePhoto.registration_id}_R${selectedDrivePhoto.round_number}_${selectedDrivePhoto.photo_title.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex-1 py-3 px-4 rounded-xl font-display font-bold text-xs bg-pixel-yellow hover:bg-pixel-yellowHover text-black shadow-neon-yellow flex items-center justify-center gap-2 transition-all"
+                      href={api.getDrivePhotoDownloadUrl(selectedDrivePhoto.id || selectedDrivePhoto.submission_id)}
+                      className="flex-1 py-3 px-4 rounded-xl font-display font-bold text-xs bg-pixel-yellow hover:bg-pixel-yellowHover text-black shadow-neon-yellow flex items-center justify-center gap-2 transition-all cursor-pointer"
                     >
                       <Download className="w-4 h-4" />
                       <span>DOWNLOAD HIGH-RES MASTER</span>
@@ -1795,7 +1792,15 @@ export const AdminDashboard = ({ setView }) => {
                 </div>
 
                 {/* Submit Evaluation */}
-                <div className="pt-2 flex items-center gap-3">
+                <div className="pt-2 flex flex-wrap items-center gap-3">
+                  <a
+                    href={api.getSubmissionDownloadUrl(selectedSubmission.id)}
+                    className="px-4 py-3 rounded-xl bg-dark-800 hover:bg-dark-700 text-pixel-yellow border border-pixel-yellow/30 text-xs font-mono font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    title="Download original high-res photograph"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download Photo</span>
+                  </a>
                   <button
                     type="button"
                     onClick={() => setSelectedSubmission(null)}

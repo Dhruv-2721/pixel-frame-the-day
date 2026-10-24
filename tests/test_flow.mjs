@@ -222,16 +222,16 @@ async function runTests() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: 'admin@pixel.lnct.ac.in',
-        password: 'Admin@Pixel2026'
+        email: process.env.ADMIN_EMAIL || 'admin@lnct.ac.in',
+        password: process.env.ADMIN_PASSWORD || 'Pixel#LNCT2026!Secure'
       })
     });
     const adminLoginData = await adminLoginRes.json();
     if (!adminLoginRes.ok || adminLoginData.user.role !== 'ADMIN') {
-      throw new Error('Admin login failed');
+      throw new Error(`Admin login failed: ${adminLoginData.error || adminLoginRes.statusText}`);
     }
     const adminToken = adminLoginData.token;
-    logPass('Administrator authenticated: admin@pixel.lnct.ac.in');
+    logPass(`Administrator authenticated: ${adminLoginData.user.email}`);
 
     // 10. Admin views payment review queue
     const queueRes = await fetch(`${BASE_URL}/admin/payments/admin/list?status=UNDER_REVIEW`, {
@@ -313,8 +313,8 @@ async function runTests() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: 'staff@pixel.lnct.ac.in',
-        password: 'Staff@Pixel2026'
+        email: process.env.STAFF_EMAIL || 'staff@lnct.ac.in',
+        password: process.env.STAFF_PASSWORD || 'Staff#LNCT2026!Gate'
       })
     });
     const staffData = await staffLoginRes.json();

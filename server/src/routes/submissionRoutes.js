@@ -85,11 +85,20 @@ router.post('/upload', requireAuth, uploadPhoto.single('photo'), validateUploadS
     const photo_path = `/uploads/submissions/${req.file.filename}`;
     const submissionId = uuidv4();
 
+    // Store base64 backup in database so photo is NEVER lost even if disk resets
+    let photo_data = null;
+    try {
+      const fileBuf = fs.readFileSync(req.file.path);
+      photo_data = `data:${req.file.mimetype || 'image/jpeg'};base64,${fileBuf.toString('base64')}`;
+    } catch (e) {
+      console.warn('Could not read photo buffer for database persistence:', e.message);
+    }
+
     await queryRun(`
       INSERT INTO submissions (
         id, participant_id, round_number, title, caption,
-        photo_path, camera_details, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'SUBMITTED')
+        photo_path, camera_details, photo_data, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'SUBMITTED')
     `, [
       submissionId,
       participant.id,
@@ -97,7 +106,8 @@ router.post('/upload', requireAuth, uploadPhoto.single('photo'), validateUploadS
       title.trim(),
       caption ? caption.trim() : null,
       photo_path,
-      camera_details ? camera_details.trim() : null
+      camera_details ? camera_details.trim() : null,
+      photo_data
     ]);
 
     await queryRun(`
@@ -346,6 +356,67 @@ router.post('/admin/:id/score', requireAuth, requireStaffOrAdmin, async (req, re
   } catch (error) {
     console.error('Score submission error:', error);
     return res.status(500).json({ error: 'Failed to evaluate submission.' });
+  }
+});
+
+/**
+ * Force download high-res submission photo (authenticated)
+ * Recovers photo from database buffer if disk was reset
+ */
+router.get('/:id/download', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const sub = await queryGet(`
+      SELECT s.*, pt.registration_id, pt.full_name, pt.user_id 
+      FROM submissions s 
+      JOIN participants pt ON s.participant_id = pt.id 
+      WHERE s.id = ?
+    `, [id]);
+
+    if (!sub) {
+      return res.status(404).json({ error: 'Submission not found.' });
+    }
+
+    // Access control: only the owner, or staff, or admin
+    if (req.user.role === 'PARTICIPANT' && sub.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
+    const cleanTitle = (sub.title || 'Photo').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const cleanReg = (sub.registration_id || 'PXL').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `PXL_${cleanReg}_R${sub.round_number}_${cleanTitle}.jpg`;
+
+    const diskPath = path.join(baseUploadDir, 'submissions', path.basename(sub.photo_path));
+    
+    // 1. If file exists on disk, stream from disk
+    if (fs.existsSync(diskPath)) {
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.sendFile(diskPath);
+    }
+
+    // 2. If missing from disk, restore from database backup buffer
+    if (sub.photo_data) {
+      const match = sub.photo_data.match(/^data:([^;]+);base64,(.+)$/);
+      const mime = match ? match[1] : 'image/jpeg';
+      const base64Content = match ? match[2] : sub.photo_data;
+      const buffer = Buffer.from(base64Content, 'base64');
+
+      // Reconstruct file on disk for caching
+      try {
+        const dir = path.dirname(diskPath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(diskPath, buffer);
+      } catch (_) {}
+
+      res.setHeader('Content-Type', mime);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(buffer);
+    }
+
+    return res.status(404).json({ error: 'Photograph file is unavailable.' });
+  } catch (err) {
+    console.error('Download photo error:', err);
+    return res.status(500).json({ error: 'Failed to download photo.' });
   }
 });
 

@@ -43,6 +43,15 @@ router.post('/submit', requireAuth, upload.single('screenshot'), validateUploadS
 
     const screenshot_path = `/uploads/payment_proofs/${req.file.filename}`;
 
+    // Read and persist base64 data into database for fail-safe persistence
+    let screenshot_data = null;
+    try {
+      const fileBuf = fs.readFileSync(req.file.path);
+      screenshot_data = `data:${req.file.mimetype || 'image/jpeg'};base64,${fileBuf.toString('base64')}`;
+    } catch (e) {
+      console.warn('Could not read screenshot buffer for database persistence:', e.message);
+    }
+
     // Check existing payment records for this participant
     const existingPayment = await queryGet(
       'SELECT * FROM payments WHERE participant_id = ? ORDER BY created_at DESC LIMIT 1',
@@ -60,7 +69,7 @@ router.post('/submit', requireAuth, upload.single('screenshot'), validateUploadS
         await queryRun(`
           UPDATE payments 
           SET transaction_ref = ?, amount = ?, payer_name = ?, payment_date = ?, 
-              screenshot_path = ?, notes = ?, status = 'UNDER_REVIEW', created_at = CURRENT_TIMESTAMP
+              screenshot_path = ?, screenshot_data = ?, notes = ?, status = 'UNDER_REVIEW', created_at = CURRENT_TIMESTAMP
           WHERE id = ?
         `, [
           transaction_ref.trim(),
@@ -68,6 +77,7 @@ router.post('/submit', requireAuth, upload.single('screenshot'), validateUploadS
           payer_name.trim(),
           payment_date.trim(),
           screenshot_path,
+          screenshot_data,
           notes ? notes.trim() : null,
           existingPayment.id
         ]);
@@ -98,7 +108,7 @@ router.post('/submit', requireAuth, upload.single('screenshot'), validateUploadS
         await queryRun(`
           UPDATE payments 
           SET transaction_ref = ?, amount = ?, payer_name = ?, payment_date = ?, 
-              screenshot_path = ?, notes = ?, status = 'UNDER_REVIEW', rejection_reason = NULL,
+              screenshot_path = ?, screenshot_data = ?, notes = ?, status = 'UNDER_REVIEW', rejection_reason = NULL,
               reviewed_by = NULL, reviewed_at = NULL, created_at = CURRENT_TIMESTAMP
           WHERE id = ?
         `, [
@@ -107,6 +117,7 @@ router.post('/submit', requireAuth, upload.single('screenshot'), validateUploadS
           payer_name.trim(),
           payment_date.trim(),
           screenshot_path,
+          screenshot_data,
           notes ? notes.trim() : null,
           existingPayment.id
         ]);
@@ -138,8 +149,8 @@ router.post('/submit', requireAuth, upload.single('screenshot'), validateUploadS
     await queryRun(`
       INSERT INTO payments (
         id, participant_id, transaction_ref, amount, payer_name,
-        payment_date, screenshot_path, notes, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'UNDER_REVIEW')
+        payment_date, screenshot_path, screenshot_data, notes, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'UNDER_REVIEW')
     `, [
       paymentId,
       participant.id,
@@ -148,6 +159,7 @@ router.post('/submit', requireAuth, upload.single('screenshot'), validateUploadS
       payer_name.trim(),
       payment_date.trim(),
       screenshot_path,
+      screenshot_data,
       notes ? notes.trim() : null
     ]);
 
@@ -228,11 +240,29 @@ router.get('/:id/proof', requireAuth, async (req, res) => {
     const relativeFilename = path.basename(payment.screenshot_path);
     const fullFilePath = path.join(baseUploadDir, 'payment_proofs', relativeFilename);
 
-    if (!fs.existsSync(fullFilePath)) {
-      return res.status(404).json({ error: 'Screenshot file not found on disk.' });
+    // 1. If file exists on disk, stream directly
+    if (fs.existsSync(fullFilePath)) {
+      return res.sendFile(fullFilePath);
     }
 
-    return res.sendFile(fullFilePath);
+    // 2. If file on disk was lost (e.g. cloud spin-down), restore from database buffer!
+    if (payment.screenshot_data) {
+      const match = payment.screenshot_data.match(/^data:([^;]+);base64,(.+)$/);
+      const mime = match ? match[1] : 'image/jpeg';
+      const base64Content = match ? match[2] : payment.screenshot_data;
+      const buffer = Buffer.from(base64Content, 'base64');
+
+      try {
+        const dir = path.dirname(fullFilePath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(fullFilePath, buffer);
+      } catch (_) {}
+
+      res.setHeader('Content-Type', mime);
+      return res.send(buffer);
+    }
+
+    return res.status(404).json({ error: 'Screenshot file is not available on server.' });
   } catch (error) {
     console.error('Proof viewing error:', error);
     return res.status(500).json({ error: 'Failed to load screenshot.' });

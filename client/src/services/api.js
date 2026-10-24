@@ -123,6 +123,14 @@ export const api = {
     const token = getAuthToken() || '';
     return `${API_BASE}/admin/drive/download-zip?token=${encodeURIComponent(token)}${round && round !== 'ALL' ? `&round=${round}` : ''}`;
   },
+  getDrivePhotoDownloadUrl: (id) => {
+    const token = getAuthToken() || '';
+    return `${API_BASE}/admin/drive/download-photo/${id}?token=${encodeURIComponent(token)}`;
+  },
+  getSubmissionDownloadUrl: (id) => {
+    const token = getAuthToken() || '';
+    return `${API_BASE}/submissions/${id}/download?token=${encodeURIComponent(token)}`;
+  },
 
   // Notifications SSE URL
   getNotificationStreamUrl: () => `${API_BASE}/notifications/stream?token=${getAuthToken() || ''}`

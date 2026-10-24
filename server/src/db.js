@@ -1,26 +1,53 @@
 import sqlite3 from 'sqlite3';
+import pg from 'pg';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 
+const { Pool } = pg;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const dbPath = path.resolve(__dirname, '../pixel_event.db');
 const backupDir = path.resolve(__dirname, '../backups');
 
-// Ensure db directory and backup directory exist
-const dbDir = path.dirname(dbPath);
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
-}
-if (!fs.existsSync(backupDir)) {
-  fs.mkdirSync(backupDir, { recursive: true });
+export const isPostgres = !!process.env.DATABASE_URL;
+let pool = null;
+let sqliteDb = null;
+
+if (isPostgres) {
+  console.log('[Database] Connecting to PostgreSQL Database via DATABASE_URL...');
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL.includes('localhost') ? { rejectUnauthorized: false } : false
+  });
+} else {
+  // Ensure db directory and backup directory exist
+  const dbDir = path.dirname(dbPath);
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
+  if (!fs.existsSync(backupDir)) {
+    fs.mkdirSync(backupDir, { recursive: true });
+  }
+
+  sqliteDb = new sqlite3.Database(dbPath, (err) => {
+    if (err) {
+      console.error('Failed to connect to SQLite database:', err.message);
+    } else {
+      console.log('Connected to SQLite database at', dbPath);
+    }
+  });
+
+  sqliteDb.run('PRAGMA foreign_keys = ON');
 }
 
-// Automated Database Backup & Retention Routine
+export const db = sqliteDb;
+
+// Automated Database Backup & Retention Routine (for SQLite fallback)
 export const createDatabaseBackup = () => {
+  if (isPostgres) return; // PostgreSQL managed backups are handled at the cloud provider tier
   try {
     if (!fs.existsSync(dbPath)) return;
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -28,7 +55,6 @@ export const createDatabaseBackup = () => {
     fs.copyFileSync(dbPath, targetFile);
     console.log(`[Backup] Automated database snapshot secured: ${path.basename(targetFile)}`);
 
-    // Rotate and keep the last 20 backups
     const existing = fs.readdirSync(backupDir)
       .filter(f => f.startsWith('backup_') && f.endsWith('.db'))
       .map(f => ({ name: f, time: fs.statSync(path.join(backupDir, f)).mtimeMs }))
@@ -44,21 +70,20 @@ export const createDatabaseBackup = () => {
   }
 };
 
-export const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Failed to connect to SQLite database:', err.message);
-  } else {
-    console.log('Connected to SQLite database at', dbPath);
-  }
-});
+// SQL helper to dynamically translate SQLite ? placeholders into PostgreSQL $1, $2, ...
+const formatSql = (sql) => {
+  if (!isPostgres) return sql;
+  let index = 1;
+  return sql.replace(/\?/g, () => `$${index++}`);
+};
 
-// Enable foreign keys
-db.run('PRAGMA foreign_keys = ON');
-
-// Promisified DB helpers
+// Promisified Universal DB helpers
 export const queryAll = (sql, params = []) => {
+  if (isPostgres) {
+    return pool.query(formatSql(sql), params).then(res => res.rows || []);
+  }
   return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
+    sqliteDb.all(sql, params, (err, rows) => {
       if (err) reject(err);
       else resolve(rows || []);
     });
@@ -66,17 +91,26 @@ export const queryAll = (sql, params = []) => {
 };
 
 export const queryGet = (sql, params = []) => {
+  if (isPostgres) {
+    return pool.query(formatSql(sql), params).then(res => res.rows[0] || null);
+  }
   return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
+    sqliteDb.get(sql, params, (err, row) => {
       if (err) reject(err);
-      else resolve(row);
+      else resolve(row || null);
     });
   });
 };
 
 export const queryRun = (sql, params = []) => {
+  if (isPostgres) {
+    return pool.query(formatSql(sql), params).then(res => ({
+      lastID: res.rows?.[0]?.id,
+      changes: res.rowCount
+    }));
+  }
   return new Promise((resolve, reject) => {
-    db.run(sql, params, function (err) {
+    sqliteDb.run(sql, params, function (err) {
       if (err) reject(err);
       else resolve({ lastID: this.lastID, changes: this.changes });
     });
@@ -149,6 +183,7 @@ export const initDb = async () => {
       payer_name TEXT NOT NULL,
       payment_date TEXT NOT NULL,
       screenshot_path TEXT NOT NULL,
+      screenshot_data TEXT,
       notes TEXT,
       status TEXT NOT NULL DEFAULT 'UNDER_REVIEW',
       rejection_reason TEXT,
@@ -209,6 +244,7 @@ export const initDb = async () => {
       title TEXT NOT NULL,
       caption TEXT,
       photo_path TEXT NOT NULL,
+      photo_data TEXT,
       camera_details TEXT,
       status TEXT NOT NULL DEFAULT 'SUBMITTED',
       score_creativity REAL DEFAULT 0,
@@ -223,6 +259,14 @@ export const initDb = async () => {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Dynamic migrations for existing databases
+  try {
+    await queryRun('ALTER TABLE payments ADD COLUMN screenshot_data TEXT');
+  } catch (_) {}
+  try {
+    await queryRun('ALTER TABLE submissions ADD COLUMN photo_data TEXT');
+  } catch (_) {}
 
   // Email Delivery Logs
   await queryRun(`
