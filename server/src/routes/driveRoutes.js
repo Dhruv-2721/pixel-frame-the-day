@@ -100,6 +100,7 @@ router.get('/photos', requireAuth, requireAdmin, async (req, res) => {
         s.title as photo_title,
         s.caption as story_pitch,
         s.photo_path,
+        s.photo_data,
         s.camera_details,
         s.status as submission_status,
         s.score_creativity,
@@ -153,7 +154,7 @@ router.get('/photos', requireAuth, requireAdmin, async (req, res) => {
 
     const rows = await queryAll(sql, params);
 
-    // Enrich rows with physical file size and existence check
+    // Enrich rows with physical file size, existence check, and auto-rehydration
     const photos = rows.map(r => {
       let fileSizeBytes = 0;
       let fileSizeFormatted = 'Unknown';
@@ -171,11 +172,27 @@ router.get('/photos', requireAuth, requireAdmin, async (req, res) => {
           } catch (e) {
             // ignore
           }
+        } else if (r.photo_data) {
+          // Auto-rehydrate physical file from database base64 buffer if container disk was wiped
+          try {
+            const match = r.photo_data.match(/^data:([^;]+);base64,(.+)$/);
+            const base64Content = match ? match[2] : r.photo_data;
+            const buffer = Buffer.from(base64Content, 'base64');
+            fileSizeBytes = buffer.length;
+            fileSizeFormatted = formatBytes(buffer.length);
+            fileExists = true;
+            fs.writeFileSync(fullPath, buffer);
+          } catch (e) {
+            // ignore
+          }
         }
       }
 
+      // Exclude huge base64 string from JSON list so response is fast
+      const { photo_data, ...photoRest } = r;
+
       return {
-        ...r,
+        ...photoRest,
         file_size_bytes: fileSizeBytes,
         file_size_formatted: fileSizeFormatted,
         file_exists: fileExists,
@@ -427,8 +444,8 @@ router.get('/download-photo/:id', requireAuth, requireAdmin, async (req, res) =>
       SELECT s.*, pt.registration_id, pt.full_name 
       FROM submissions s 
       JOIN participants pt ON s.participant_id = pt.id 
-      WHERE s.id = ?
-    `, [id]);
+      WHERE s.id = ? OR s.participant_id = ? OR pt.registration_id = ?
+    `, [id, id, id]);
 
     if (!item) {
       return res.status(404).json({ error: 'Photo not found in drive.' });

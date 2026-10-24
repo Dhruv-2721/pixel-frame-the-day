@@ -1290,11 +1290,8 @@ export const AdminDashboard = ({ setView }) => {
                       </button>
 
                       <a
-                        href={photo.photo_path}
-                        download={`${photo.registration_id}_R${photo.round_number}_${photo.photo_title.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="py-1.5 px-3 rounded-xl bg-dark-800 hover:bg-dark-700 text-xs font-mono font-medium text-slate-200 border border-white/10 hover:border-pixel-yellow flex items-center justify-center gap-1.5 transition-colors"
+                        href={api.getDrivePhotoDownloadUrl(photo.id || photo.submission_id)}
+                        className="py-1.5 px-3 rounded-xl bg-dark-800 hover:bg-dark-700 text-xs font-mono font-medium text-slate-200 border border-white/10 hover:border-pixel-yellow flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                         title="Download Master Image"
                       >
                         <Download className="w-3.5 h-3.5 text-pixel-yellow" />
@@ -1373,11 +1370,8 @@ export const AdminDashboard = ({ setView }) => {
                               <Eye className="w-3.5 h-3.5" />
                             </button>
                             <a
-                              href={photo.photo_path}
-                              download={`${photo.registration_id}_R${photo.round_number}.jpg`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="px-2.5 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 text-pixel-yellow border border-pixel-yellow/30"
+                              href={api.getDrivePhotoDownloadUrl(photo.id || photo.submission_id)}
+                              className="px-2.5 py-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 text-pixel-yellow border border-pixel-yellow/30 cursor-pointer"
                               title="Download Master Image"
                             >
                               <Download className="w-3.5 h-3.5" />

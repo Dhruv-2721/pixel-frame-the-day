@@ -6,7 +6,7 @@ import fs from 'fs';
 import helmet from 'helmet';
 import { fileURLToPath } from 'url';
 
-import { initDb } from './db.js';
+import { initDb, queryGet } from './db.js';
 import authRoutes from './routes/authRoutes.js';
 import eventRoutes from './routes/eventRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
@@ -126,6 +126,70 @@ app.use(
   '/uploads/avatars',
   express.static(path.join(baseUploadDir, 'avatars'), { setHeaders: staticSecurityHeaders })
 );
+// Dynamic fail-safe recovery for submission photography files (recovers from db if disk was wiped)
+app.get('/uploads/submissions/:filename', async (req, res, next) => {
+  try {
+    const filename = path.basename(req.params.filename);
+    const diskPath = path.join(baseUploadDir, 'submissions', filename);
+
+    if (fs.existsSync(diskPath)) {
+      return next();
+    }
+
+    const sub = await queryGet('SELECT photo_data FROM submissions WHERE photo_path LIKE ?', [`%${filename}`]);
+    if (sub && sub.photo_data) {
+      const match = sub.photo_data.match(/^data:([^;]+);base64,(.+)$/);
+      const mime = match ? match[1] : 'image/jpeg';
+      const base64Content = match ? match[2] : sub.photo_data;
+      const buffer = Buffer.from(base64Content, 'base64');
+
+      try {
+        fs.writeFileSync(diskPath, buffer);
+      } catch (_) {}
+
+      res.setHeader('Content-Type', mime);
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.send(buffer);
+    }
+  } catch (err) {
+    console.error('[Upload Recovery] Submissions recovery error:', err.message);
+  }
+  next();
+});
+
+// Dynamic fail-safe recovery for payment proof screenshots
+app.get('/uploads/payment_proofs/:filename', async (req, res, next) => {
+  try {
+    const filename = path.basename(req.params.filename);
+    const diskPath = path.join(baseUploadDir, 'payment_proofs', filename);
+
+    if (fs.existsSync(diskPath)) {
+      return next();
+    }
+
+    const pay = await queryGet('SELECT screenshot_data FROM payments WHERE screenshot_path LIKE ?', [`%${filename}`]);
+    if (pay && pay.screenshot_data) {
+      const match = pay.screenshot_data.match(/^data:([^;]+);base64,(.+)$/);
+      const mime = match ? match[1] : 'image/jpeg';
+      const base64Content = match ? match[2] : pay.screenshot_data;
+      const buffer = Buffer.from(base64Content, 'base64');
+
+      try {
+        fs.writeFileSync(diskPath, buffer);
+      } catch (_) {}
+
+      res.setHeader('Content-Type', mime);
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Cache-Control', 'private, max-age=3600');
+      return res.send(buffer);
+    }
+  } catch (err) {
+    console.error('[Upload Recovery] Payment proof recovery error:', err.message);
+  }
+  next();
+});
+
 app.use(
   '/uploads/submissions',
   express.static(path.join(baseUploadDir, 'submissions'), { setHeaders: staticSecurityHeaders })
