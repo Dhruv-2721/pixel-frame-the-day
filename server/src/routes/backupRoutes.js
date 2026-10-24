@@ -733,4 +733,44 @@ router.post('/restore-json', requireAuth, requireAdmin, uploadBackup.single('bac
   }
 });
 
+/**
+ * 8. POST /api/admin/backup/clear-test-data
+ * Clears participant test records, tickets, payments, submissions, and email logs
+ * Keeps admin & staff users, settings, and announcements intact.
+ */
+router.post('/clear-test-data', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    createDatabaseBackup();
+
+    await queryRun('DELETE FROM tickets');
+    await queryRun('DELETE FROM submissions');
+    await queryRun('DELETE FROM payments');
+    await queryRun('DELETE FROM participants');
+    await queryRun("DELETE FROM users WHERE role = 'PARTICIPANT'");
+    await queryRun('DELETE FROM email_logs');
+
+    // Clean runtime uploaded submissions and payment proofs on disk
+    [submissionsDir, paymentProofsDir].forEach((dir) => {
+      if (fs.existsSync(dir)) {
+        const files = fs.readdirSync(dir);
+        for (const f of files) {
+          if (f !== '.gitkeep') {
+            try { fs.unlinkSync(path.join(dir, f)); } catch (_) {}
+          }
+        }
+      }
+    });
+
+    await queryRun(`
+      INSERT INTO audit_logs (id, user_id, user_email, action, target_type, target_id, details)
+      VALUES (?, ?, ?, 'TEST_DATA_CLEARED', 'SYSTEM', 'DATABASE', ?)
+    `, [uuidv4(), req.user.id, req.user.email, 'Admin cleared all test participants, tickets, payments, and submissions']);
+
+    return res.json({ message: 'All test participants and submissions have been cleared successfully. System reset to clean state.' });
+  } catch (error) {
+    console.error('Clear test data error:', error);
+    return res.status(500).json({ error: 'Failed to clear test data: ' + error.message });
+  }
+});
+
 export default router;

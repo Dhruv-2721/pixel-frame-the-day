@@ -4,7 +4,7 @@ import {
   Search, Filter, Download, Eye, AlertCircle, RefreshCw, Upload, 
   Settings, Award, FileText, ChevronRight, Check, X, Camera, Mail, Trophy,
   HardDrive, Cloud, FolderArchive, Grid, List, ExternalLink, FileSpreadsheet,
-  Database, Save, RotateCcw, ShieldCheck, UploadCloud
+  Database, Save, RotateCcw, ShieldCheck, UploadCloud, Trash2
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -221,6 +221,28 @@ export const AdminDashboard = ({ setView }) => {
       setBackupErrorMsg(err.message || 'Restoration failed.');
     } finally {
       setRestoring(false);
+    }
+  };
+
+  const handleClearTestData = async () => {
+    if (!window.confirm('⚠️ WARNING: Are you sure you want to clear all test participants, payments, and submissions? (An automated backup snapshot will be saved first).')) {
+      return;
+    }
+    setBackupActionLoading(true);
+    setBackupErrorMsg('');
+    setBackupSuccessMsg('');
+    try {
+      const res = await api.clearTestData();
+      alert(res.message || 'Test data cleared successfully!');
+      setBackupSuccessMsg(res.message || 'Test data cleared successfully!');
+      await loadData();
+      await loadBackupOverview();
+    } catch (err) {
+      console.error('Clear test data error:', err);
+      alert('Failed to clear test data: ' + (err.message || 'Error'));
+      setBackupErrorMsg(err.message || 'Failed to clear test data.');
+    } finally {
+      setBackupActionLoading(false);
     }
   };
 
@@ -817,6 +839,18 @@ export const AdminDashboard = ({ setView }) => {
                 <Download className={`w-3.5 h-3.5 ${exportingCsv ? 'animate-bounce' : ''}`} />
                 <span>{exportingCsv ? 'Exporting...' : 'Export CSV'}</span>
               </button>
+
+              {participants.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearTestData}
+                  className="px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-xs font-mono font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1.5 transition-all shadow-sm"
+                  title="Clear all test participants and reset registration roster"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Clear Test Data</span>
+                </button>
+              )}
             </div>
           </div>
 

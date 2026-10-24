@@ -153,6 +153,7 @@ export const api = {
   },
   restoreBackupFromFile: (formData) => apiRequest('/admin/backup/restore-json', { method: 'POST', body: formData }),
   restoreBackupFromJson: (payload) => apiRequest('/admin/backup/restore-json', { method: 'POST', body: payload }),
+  clearTestData: () => apiRequest('/admin/backup/clear-test-data', { method: 'POST' }),
 
   // Notifications SSE URL
   getNotificationStreamUrl: () => `${API_BASE}/notifications/stream?token=${getAuthToken() || ''}`
